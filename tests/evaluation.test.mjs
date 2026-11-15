@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isAuthorizedEvaluationCronRequest } from "../src/lib/evaluation/cronAuth.ts";
+import { EVALUATION_SYSTEM_PROMPT } from "../src/lib/evaluation/prompt.ts";
 import { processOneEvaluationJob } from "../src/lib/evaluation/processor.ts";
 import { validateEvaluationResponse } from "../src/lib/evaluation/validator.ts";
 
@@ -115,6 +116,49 @@ test("calculates the overall score from validated categories", () => {
   const result = validateEvaluationResponse(validEvaluation());
   assert.equal(result.overallScore, 7);
   assert.equal("overall_score" in validEvaluation(), false);
+});
+
+test("prompt awards full complexity credit only for explained time and space", () => {
+  assert.match(
+    EVALUATION_SYSTEM_PROMPT,
+    /1\.00: Both time and auxiliary space are correct and reasonably justified\./,
+  );
+  assert.match(
+    EVALUATION_SYSTEM_PROMPT,
+    /Do not award full complexity credit when either time or auxiliary space is explicitly missing\./,
+  );
+});
+
+test("prompt assigns partial credit for time-only complexity explanations", () => {
+  assert.match(
+    EVALUATION_SYSTEM_PROMPT,
+    /0\.50: Time or auxiliary space complexity is correct and reasonably explained, but the other is missing or unclear\./,
+  );
+});
+
+test("prompt assigns quarter credit to tentative or unsupported complexity claims", () => {
+  assert.match(
+    EVALUATION_SYSTEM_PROMPT,
+    /0\.25: A vague, tentative, or unsupported complexity claim; the student acknowledges uncertainty or cannot explain the claim\./,
+  );
+});
+
+test("prompt assigns zero to absent or materially incorrect complexity claims", () => {
+  assert.match(
+    EVALUATION_SYSTEM_PROMPT,
+    /0\.00: No meaningful complexity discussion, or materially incorrect complexity claims\./,
+  );
+});
+
+test("complexity band scores remain accepted by the existing validator", () => {
+  for (const score of [1, 0.5, 0.25, 0]) {
+    const value = validEvaluation();
+    value.scores.complexity.score = score;
+    assert.equal(
+      validateEvaluationResponse(value).scores.complexity.score,
+      score,
+    );
+  }
 });
 
 test("rejects absent and invalid Cron secrets", () => {
