@@ -2,8 +2,14 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAuthAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedEvaluationCronRequest } from "@/lib/evaluation/cronAuth";
-import { evaluateStudentExplanation } from "@/lib/evaluation/groq";
+import {
+  evaluateStudentExplanation,
+  generateProblemReferenceCard,
+} from "@/lib/evaluation/groq";
+import { resolveProblemContext } from "@/lib/evaluation/problemContext";
 import { processOneEvaluationJob } from "@/lib/evaluation/processor";
+import { getOrCreateReferenceCard } from "@/lib/evaluation/referenceCard";
+import { fetchLeetCodeProblemDetails } from "@/lib/leetcode/problemDetails";
 import { validateEvaluationResponse } from "@/lib/evaluation/validator";
 
 export const runtime = "nodejs";
@@ -50,12 +56,80 @@ export async function POST(request: Request) {
       });
       return { data, error };
     },
-    evaluate: (job) =>
-      evaluateStudentExplanation({
+    evaluate: async (job) => {
+      // Phase 1: the real problem statement (DB first, fetched once if missing).
+      const context = await resolveProblemContext(
+        job.problemSlug,
+        job.problemTitle,
+        {
+          lookup: async (slug) => {
+            const { data, error } = await admin
+              .from("problems")
+              .select("id,title,difficulty,description")
+              .eq("leetcode_slug", slug)
+              .maybeSingle();
+            if (error) throw new Error("Problem lookup failed.");
+            return data;
+          },
+          fetchDetails: (slug) => fetchLeetCodeProblemDetails(slug),
+          saveDescription: async (problemId, promptText) => {
+            await admin
+              .from("problems")
+              .update({ description: promptText })
+              .eq("id", problemId)
+              .is("description", null);
+          },
+        },
+      );
+
+      // Phase 2: a cached per-problem answer key so every student is judged
+      // against the same reference. Failure degrades gracefully (flagged).
+      const reference = context.problemId
+        ? await getOrCreateReferenceCard({
+            find: async () => {
+              const { data, error } = await admin
+                .from("problem_reference_cards")
+                .select("card")
+                .eq("problem_id", context.problemId as string)
+                .maybeSingle();
+              if (error) throw new Error("Reference lookup failed.");
+              return data?.card ?? null;
+            },
+            generate: () =>
+              generateProblemReferenceCard({
+                slug: job.problemSlug,
+                title: context.title,
+                promptText: context.promptText,
+              }),
+            save: async (card, modelName) => {
+              await admin.from("problem_reference_cards").upsert(
+                {
+                  problem_id: context.problemId,
+                  card,
+                  model_name: modelName,
+                },
+                { onConflict: "problem_id", ignoreDuplicates: true },
+              );
+            },
+          })
+        : ({ card: null, source: "unavailable" } as const);
+
+      const extraFlags: string[] = [];
+      if (!context.promptText) extraFlags.push("no_problem_statement");
+      if (!reference.card) extraFlags.push("reference_unavailable");
+      else if (reference.card.confidence === "low") {
+        extraFlags.push("reference_low_confidence");
+      }
+
+      const evaluation = await evaluateStudentExplanation({
         transcript: job.transcript,
         problemSlug: job.problemSlug,
-        problemTitle: job.problemTitle,
-      }),
+        problemTitle: context.title,
+        problemText: context.promptText,
+        referenceCard: reference.card,
+      });
+      return { ...evaluation, extraFlags };
+    },
     validate: validateEvaluationResponse,
     renewLease: async (jobId, claimedWorkerId) => {
       const { data, error } = await admin.rpc("renew_evaluation_job_lease", {

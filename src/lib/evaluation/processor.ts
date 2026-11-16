@@ -8,23 +8,28 @@ export type ClaimedEvaluationJob = {
 };
 
 export type ValidatedEvaluation = {
-  scores: Record<string, { score: number; feedback: string }>;
+  scores: Record<
+    string,
+    { score: number; feedback: string; evidence: string[] }
+  >;
   overallScore: number;
   feedback: string;
   strengths: string[];
   improvements: string[];
+  reviewFlags: string[];
 };
 
 export type CompleteEvaluationArguments = {
   p_job_id: string;
   p_worker_id: string;
   p_model_name: string;
-  p_rubric_version: "v1";
+  p_rubric_version: "v2";
   p_scores: ValidatedEvaluation["scores"];
   p_overall_score: number;
   p_feedback: string;
   p_strengths: string[];
   p_improvements: string[];
+  p_review_flags: string[];
 };
 
 export type ProcessorRpcResult = {
@@ -35,10 +40,14 @@ export type ProcessorRpcResult = {
 export type EvaluationProcessorDependencies = {
   recoverStaleJobs: (timeoutMinutes: number) => Promise<ProcessorRpcResult>;
   claimJob: (workerId: string) => Promise<ProcessorRpcResult>;
-  evaluate: (
-    job: ClaimedEvaluationJob,
-  ) => Promise<{ modelName: string; response: unknown }>;
-  validate: (response: unknown) => ValidatedEvaluation;
+  evaluate: (job: ClaimedEvaluationJob) => Promise<{
+    modelName: string;
+    response: unknown;
+    // Flags the backend itself established while preparing the request
+    // (for example a missing problem statement); merged into the result.
+    extraFlags?: string[];
+  }>;
+  validate: (response: unknown, transcript: string) => ValidatedEvaluation;
   renewLease: (jobId: string, workerId: string) => Promise<ProcessorRpcResult>;
   completeJob: (
     arguments_: CompleteEvaluationArguments,
@@ -197,7 +206,15 @@ export async function processOneEvaluationJob(
     ) {
       throw new Error("Invalid model name.");
     }
-    evaluation = dependencies.validate(generated.response);
+    evaluation = dependencies.validate(generated.response, claim.job.transcript);
+    if (generated.extraFlags?.length) {
+      evaluation = {
+        ...evaluation,
+        reviewFlags: [
+          ...new Set([...evaluation.reviewFlags, ...generated.extraFlags]),
+        ],
+      };
+    }
     modelName = generated.modelName;
   } catch {
     const recorded = await recordFailure(
@@ -225,12 +242,13 @@ export async function processOneEvaluationJob(
       p_job_id: claim.job.jobId,
       p_worker_id: workerId,
       p_model_name: modelName,
-      p_rubric_version: "v1",
+      p_rubric_version: "v2",
       p_scores: evaluation.scores,
       p_overall_score: evaluation.overallScore,
       p_feedback: evaluation.feedback,
       p_strengths: evaluation.strengths,
       p_improvements: evaluation.improvements,
+      p_review_flags: evaluation.reviewFlags,
     });
     if (completion.error || completion.data === false) {
       return { status: "completion_uncertain" };

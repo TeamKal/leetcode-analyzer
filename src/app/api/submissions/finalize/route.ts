@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseLeetCodeProblemUrl } from "@/lib/leetcode";
-import { getLeetCodeProblemMetadata } from "@/lib/leetcode/problemMetadata";
+import { fetchLeetCodeProblemDetails } from "@/lib/leetcode/problemDetails";
 import { verifyStudentVideoObject } from "@/lib/r2/verifyStudentVideo";
 import { MAX_SUBMISSION_TRANSCRIPT_LENGTH } from "@/lib/submissions/constants";
 import { createAuthAdminClient } from "@/lib/supabase/admin";
@@ -132,14 +132,15 @@ function titleFromSlug(slug: string) {
 }
 
 async function resolveProblemId(slug: string): Promise<string | null> {
-  const metadata = await getLeetCodeProblemMetadata(slug);
+  // One fetch gives title, difficulty and the statement used as grading context.
+  const details = await fetchLeetCodeProblemDetails(slug);
   const admin = createAuthAdminClient();
   const { error: insertError } = await admin.from("problems").upsert(
     {
       leetcode_slug: slug,
-      title: metadata?.title ?? titleFromSlug(slug),
-      description: null,
-      difficulty: metadata?.difficulty ?? null,
+      title: details?.title ?? titleFromSlug(slug),
+      description: details?.promptText ?? null,
+      difficulty: details?.difficulty ?? null,
     },
     { onConflict: "leetcode_slug", ignoreDuplicates: true },
   );
@@ -156,6 +157,16 @@ async function resolveProblemId(slug: string): Promise<string | null> {
 
   if (lookupError || typeof problem?.id !== "string") {
     return null;
+  }
+
+  if (details?.promptText) {
+    // Backfill rows created before statements were stored. Best effort only:
+    // the evaluator fetches the statement itself if this does not happen.
+    await admin
+      .from("problems")
+      .update({ description: details.promptText })
+      .eq("id", problem.id)
+      .is("description", null);
   }
 
   return problem.id;

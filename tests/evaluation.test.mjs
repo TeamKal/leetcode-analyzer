@@ -5,19 +5,23 @@ import { EVALUATION_SYSTEM_PROMPT } from "../src/lib/evaluation/prompt.ts";
 import { processOneEvaluationJob } from "../src/lib/evaluation/processor.ts";
 import { validateEvaluationResponse } from "../src/lib/evaluation/validator.ts";
 
+const TRANSCRIPT =
+  "I would use a hash map to store the complement of each number while scanning the array once and return the indices as soon as the complement is found.";
+
 function validEvaluation() {
   return {
     scores: {
-      problem_understanding: { score: 1.5, feedback: "Mostly clear." },
-      approach: { score: 1.5, feedback: "A suitable approach." },
-      reasoning: { score: 1.5, feedback: "Reasoning is explained." },
-      edge_cases: { score: 0.5, feedback: "Some cases are considered." },
-      complexity: { score: 0.5, feedback: "Complexity is partly stated." },
-      communication: { score: 1.5, feedback: "The explanation is clear." },
+      problem_understanding: { score: 1.5, feedback: "Mostly clear.", evidence: [] },
+      approach: { score: 1.5, feedback: "A suitable approach.", evidence: [] },
+      reasoning: { score: 1.5, feedback: "Reasoning is explained.", evidence: [] },
+      edge_cases: { score: 0.5, feedback: "Some cases are considered.", evidence: [] },
+      complexity: { score: 0.5, feedback: "Complexity is partly stated.", evidence: [] },
+      communication: { score: 1.5, feedback: "The explanation is clear.", evidence: [] },
     },
     feedback: "The explanation is generally sound.",
     strengths: ["Explains the approach."],
     improvements: ["State complexity explicitly."],
+    review_flags: [],
   };
 }
 
@@ -81,39 +85,39 @@ function processorDependencies(overrides = {}) {
 test("rejects an invalid category score", () => {
   const value = validEvaluation();
   value.scores.edge_cases.score = -0.1;
-  assert.throws(() => validateEvaluationResponse(value));
+  assert.throws(() => validateEvaluationResponse(value, TRANSCRIPT));
 });
 
 test("rejects a missing category", () => {
   const value = validEvaluation();
   delete value.scores.reasoning;
-  assert.throws(() => validateEvaluationResponse(value));
+  assert.throws(() => validateEvaluationResponse(value, TRANSCRIPT));
 });
 
 test("rejects non-finite scores", () => {
   for (const score of [Number.NaN, Number.POSITIVE_INFINITY]) {
     const value = validEvaluation();
     value.scores.approach.score = score;
-    assert.throws(() => validateEvaluationResponse(value));
+    assert.throws(() => validateEvaluationResponse(value, TRANSCRIPT));
   }
 });
 
 test("rejects scores above a category maximum", () => {
   const value = validEvaluation();
   value.scores.complexity.score = 1.01;
-  assert.throws(() => validateEvaluationResponse(value));
+  assert.throws(() => validateEvaluationResponse(value, TRANSCRIPT));
 });
 
 test("rejects malformed strengths and improvements", () => {
   for (const field of ["strengths", "improvements"]) {
     const value = validEvaluation();
     value[field] = [" "];
-    assert.throws(() => validateEvaluationResponse(value));
+    assert.throws(() => validateEvaluationResponse(value, TRANSCRIPT));
   }
 });
 
 test("calculates the overall score from validated categories", () => {
-  const result = validateEvaluationResponse(validEvaluation());
+  const result = validateEvaluationResponse(validEvaluation(), TRANSCRIPT);
   assert.equal(result.overallScore, 7);
   assert.equal("overall_score" in validEvaluation(), false);
 });
@@ -155,7 +159,7 @@ test("complexity band scores remain accepted by the existing validator", () => {
     const value = validEvaluation();
     value.scores.complexity.score = score;
     assert.equal(
-      validateEvaluationResponse(value).scores.complexity.score,
+      validateEvaluationResponse(value, TRANSCRIPT).scores.complexity.score,
       score,
     );
   }
@@ -226,7 +230,8 @@ test("completes only after successful lease renewal and completion RPC", async (
   assert.deepEqual(calls.renewed, { jobId: "job-1", workerId: "worker-1" });
   assert.equal(calls.completed.p_job_id, "job-1");
   assert.equal(calls.completed.p_worker_id, "worker-1");
-  assert.equal(calls.completed.p_rubric_version, "v1");
+  assert.equal(calls.completed.p_rubric_version, "v2");
+  assert.ok(Array.isArray(calls.completed.p_review_flags));
   assert.equal(calls.completed.p_overall_score, 7);
   assert.equal(calls.failed, null);
 });
