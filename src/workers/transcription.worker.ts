@@ -16,15 +16,17 @@ import { collapseRepeats, isDegenerateTranscript } from "../lib/transcriptText";
 
 // English-only models. Do NOT pass `language` or `task` to them: transformers.js
 // throws for English-only checkpoints.
-// Same checkpoint on both paths. distil-small.en was benchmarked and dropped a
-// clause on clean audio, so Whisper Base is the more reliable choice.
+//
+// Use the Xenova export: the onnx-community/whisper-base.en fp16 files (Oct 2024)
+// fail to load in the browser's ONNX runtime ("Subgraph output (logits) is an
+// outer scope value"). The Xenova files were re-exported in Dec 2025 and load.
 const GPU_MODEL = {
-  id: "onnx-community/whisper-base.en",
+  id: "Xenova/whisper-base.en",
   label: "Whisper Base (English, fp16)",
   dtype: { encoder_model: "fp16", decoder_model_merged: "fp16" },
 } as const;
 const WASM_MODEL = {
-  id: "onnx-community/whisper-base.en",
+  id: "Xenova/whisper-base.en",
   label: "Whisper Base (English, quantized)",
   dtype: "q8",
 } as const;
@@ -44,10 +46,16 @@ type WebGpuNavigator = Navigator & {
   };
 };
 
-class UnreliableGpuOutputError extends Error {}
+// A failed GPU session poisons the ONNX runtime for the rest of this worker's
+// life (a WASM load afterwards fails with the same error). Never fall back
+// in-process: signal the caller to retry in a fresh worker instead.
+class GpuUnavailableError extends Error {}
 
-function post(message: TranscriptionWorkerMessage) {
-  workerScope.postMessage(message);
+function post(
+  message: TranscriptionWorkerMessage,
+  transfer: Transferable[] = [],
+) {
+  workerScope.postMessage(message, transfer);
 }
 
 function getErrorMessage(error: unknown) {
@@ -99,16 +107,14 @@ async function initializePipeline() {
     throw new Error(initializationError);
   }
 
-  let webgpuError: unknown = null;
   if (await gpuIsUsable()) {
     try {
       const gpuPipeline = await createPipeline("webgpu");
       activeMode = "webgpu";
       transcriber = gpuPipeline;
       return gpuPipeline;
-    } catch (error) {
-      webgpuError = error;
-      gpuDisabled = true;
+    } catch {
+      throw new GpuUnavailableError("WebGPU could not initialize.");
     }
   }
 
@@ -116,9 +122,7 @@ async function initializePipeline() {
     type: "status",
     status: "fallback",
     mode: "wasm",
-    message: webgpuError
-      ? "WebGPU could not initialize. Switching to the quantized WASM model."
-      : "Using the quantized WASM model on this device.",
+    message: "Using the quantized WASM model on this device.",
   });
 
   try {
@@ -128,10 +132,7 @@ async function initializePipeline() {
     return wasmPipeline;
   } catch (wasmError) {
     initializationError =
-      (webgpuError
-        ? `WebGPU could not initialize: ${getErrorMessage(webgpuError)} `
-        : "") +
-      `The WASM model could not start: ${getErrorMessage(wasmError)} ` +
+      `The Whisper model could not start: ${getErrorMessage(wasmError)} ` +
       "Check your connection for the model download, then try again.";
     throw new Error(initializationError);
   }
@@ -145,20 +146,6 @@ function getPipeline() {
     initialization = initializePipeline();
   }
   return initialization;
-}
-
-async function switchToWasm() {
-  gpuDisabled = true;
-  const previous = transcriber;
-  transcriber = null;
-  initialization = null;
-  activeMode = null;
-  try {
-    await previous?.dispose();
-  } catch {
-    // Disposal failures must not block the fallback.
-  }
-  return getPipeline();
 }
 
 async function transcribeSegments(
@@ -176,7 +163,7 @@ async function transcribeSegments(
       activeMode === "webgpu" &&
       isDegenerateTranscript(text, segment.speechSeconds)
     ) {
-      throw new UnreliableGpuOutputError("The GPU produced unreliable text.");
+      throw new GpuUnavailableError("The GPU produced unreliable text.");
     }
 
     const cleaned = collapseRepeats(text);
@@ -203,6 +190,9 @@ workerScope.onmessage = async (
   }
 
   const { audio } = event.data;
+  if (event.data.forceWasm) {
+    gpuDisabled = true;
+  }
   if (!audio.length) {
     post({
       type: "error",
@@ -226,7 +216,7 @@ workerScope.onmessage = async (
       return;
     }
 
-    let asr = await getPipeline();
+    const asr = await getPipeline();
     if (!activeMode) {
       throw new Error("The model did not select a supported execution mode.");
     }
@@ -245,37 +235,21 @@ workerScope.onmessage = async (
       message: "Transcribing the speech parts of your recording.",
     });
 
-    let chunks: TranscriptChunk[];
-    try {
-      chunks = await transcribeSegments(asr, segments);
-    } catch (error) {
-      if (!(error instanceof UnreliableGpuOutputError)) throw error;
-      stage = "loading-model";
-      post({
-        type: "status",
-        status: "fallback",
-        mode: "wasm",
-        message:
-          "The GPU output looked unreliable. Restarting with the WASM model.",
-      });
-      asr = await switchToWasm();
-      stage = "transcribing";
-      post({
-        type: "status",
-        status: "transcribing",
-        mode: "wasm",
-        message: "Transcribing the speech parts of your recording.",
-      });
-      chunks = await transcribeSegments(asr, segments);
-    }
+    const chunks = await transcribeSegments(asr, segments);
 
     post({
       type: "complete",
       text: chunks.map((chunk) => chunk.text).join(" "),
       chunks,
-      mode: activeMode ?? "wasm",
+      mode: activeMode,
     });
   } catch (error) {
+    if (error instanceof GpuUnavailableError) {
+      // `segmentSpeech` copies samples, so the original buffer is still intact.
+      post({ type: "gpu-unavailable", audio }, [audio.buffer]);
+      return;
+    }
+
     const message = getErrorMessage(error);
     const memoryFailure = /out of memory|allocation failed|memory|alloc/i.test(
       message,
