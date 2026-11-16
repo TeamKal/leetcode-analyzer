@@ -5,21 +5,35 @@ import {
   type AutomaticSpeechRecognitionPipeline,
   type ProgressInfo,
 } from "@huggingface/transformers";
+import { segmentSpeech } from "../lib/audioSegments";
 import type {
   ExecutionMode,
   TranscriptChunk,
   TranscriptionWorkerMessage,
   TranscriptionWorkerRequest,
 } from "../lib/transcription";
+import { collapseRepeats, isDegenerateTranscript } from "../lib/transcriptText";
 
-const MODEL_ID = "onnx-community/whisper-tiny";
-const CHUNK_LENGTH_SECONDS = 30;
-const STRIDE_LENGTH_SECONDS = 5;
+// English-only models. Do NOT pass `language` or `task` to them: transformers.js
+// throws for English-only checkpoints.
+// Same checkpoint on both paths. distil-small.en was benchmarked and dropped a
+// clause on clean audio, so Whisper Base is the more reliable choice.
+const GPU_MODEL = {
+  id: "onnx-community/whisper-base.en",
+  label: "Whisper Base (English, fp16)",
+  dtype: { encoder_model: "fp16", decoder_model_merged: "fp16" },
+} as const;
+const WASM_MODEL = {
+  id: "onnx-community/whisper-base.en",
+  label: "Whisper Base (English, quantized)",
+  dtype: "q8",
+} as const;
 
 let transcriber: AutomaticSpeechRecognitionPipeline | null = null;
 let initialization: Promise<AutomaticSpeechRecognitionPipeline> | null = null;
 let initializationError: string | null = null;
 let activeMode: ExecutionMode | null = null;
+let gpuDisabled = false;
 
 const workerScope = self as DedicatedWorkerGlobalScope;
 type WebGpuNavigator = Navigator & {
@@ -30,6 +44,8 @@ type WebGpuNavigator = Navigator & {
   };
 };
 
+class UnreliableGpuOutputError extends Error {}
+
 function post(message: TranscriptionWorkerMessage) {
   workerScope.postMessage(message);
 }
@@ -38,31 +54,18 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function formatLoadingError(webgpuError: unknown, wasmError: unknown) {
-  return [
-    `WebGPU could not initialize: ${getErrorMessage(webgpuError)}`,
-    `The WASM fallback also failed: ${getErrorMessage(wasmError)}`,
-    "Check your connection for the model download, then try again. The model files are cached by your browser when possible.",
-  ].join(" ");
-}
-
-async function createPipeline(
-  mode: ExecutionMode,
-  dtype: "fp16" | "fp32" | "q8",
-) {
+async function createPipeline(mode: ExecutionMode) {
+  const model = mode === "webgpu" ? GPU_MODEL : WASM_MODEL;
   post({
     type: "status",
     status: "loading-model",
     mode,
-    message:
-      mode === "webgpu"
-        ? `Loading the multilingual Whisper Tiny model for WebGPU (${dtype}).`
-        : "Loading the quantized Whisper Tiny model for WASM.",
+    message: `Loading ${model.label} for ${mode === "webgpu" ? "WebGPU" : "WASM"}.`,
   });
 
-  return pipeline("automatic-speech-recognition", MODEL_ID, {
+  return pipeline("automatic-speech-recognition", model.id, {
     device: mode,
-    dtype,
+    dtype: model.dtype,
     progress_callback: (info: ProgressInfo) => {
       const file = "file" in info ? info.file : "Whisper model files";
       const progress =
@@ -78,52 +81,34 @@ async function createPipeline(
   });
 }
 
+async function gpuIsUsable() {
+  if (gpuDisabled) return false;
+  const gpu = (navigator as WebGpuNavigator).gpu;
+  if (!gpu) return false;
+  try {
+    const adapter = await gpu.requestAdapter();
+    // The GPU model is fp16-only, so require shader-f16 support.
+    return adapter?.features.has("shader-f16") ?? false;
+  } catch {
+    return false;
+  }
+}
+
 async function initializePipeline() {
   if (initializationError) {
     throw new Error(initializationError);
   }
 
-  const gpu = (navigator as WebGpuNavigator).gpu;
-  if (gpu) {
-    let adapterAvailable = false;
-    let supportsFloat16 = false;
-
+  let webgpuError: unknown = null;
+  if (await gpuIsUsable()) {
     try {
-      const adapter = await gpu.requestAdapter();
-      adapterAvailable = adapter !== null;
-      supportsFloat16 = adapter?.features.has("shader-f16") ?? false;
-    } catch {
-      adapterAvailable = false;
-    }
-
-    if (adapterAvailable) {
-      try {
-        const gpuPipeline = await createPipeline(
-          "webgpu",
-          supportsFloat16 ? "fp16" : "fp32",
-        );
-        activeMode = "webgpu";
-        transcriber = gpuPipeline;
-        return gpuPipeline;
-      } catch (webgpuError) {
-        post({
-          type: "status",
-          status: "fallback",
-          mode: "wasm",
-          message:
-            "WebGPU could not initialize. Switching to the quantized WASM fallback.",
-        });
-
-        try {
-          const wasmPipeline = await createPipeline("wasm", "q8");
-          activeMode = "wasm";
-          transcriber = wasmPipeline;
-          return wasmPipeline;
-        } catch (wasmError) {
-          initializationError = formatLoadingError(webgpuError, wasmError);
-          throw new Error(initializationError);
-        }
-      }
+      const gpuPipeline = await createPipeline("webgpu");
+      activeMode = "webgpu";
+      transcriber = gpuPipeline;
+      return gpuPipeline;
+    } catch (error) {
+      webgpuError = error;
+      gpuDisabled = true;
     }
   }
 
@@ -131,18 +116,22 @@ async function initializePipeline() {
     type: "status",
     status: "fallback",
     mode: "wasm",
-    message:
-      "WebGPU is unavailable here. Using the quantized WASM fallback.",
+    message: webgpuError
+      ? "WebGPU could not initialize. Switching to the quantized WASM model."
+      : "Using the quantized WASM model on this device.",
   });
 
   try {
-    const wasmPipeline = await createPipeline("wasm", "q8");
+    const wasmPipeline = await createPipeline("wasm");
     activeMode = "wasm";
     transcriber = wasmPipeline;
     return wasmPipeline;
-  } catch (error) {
+  } catch (wasmError) {
     initializationError =
-      `The Whisper model could not start with WASM: ${getErrorMessage(error)} ` +
+      (webgpuError
+        ? `WebGPU could not initialize: ${getErrorMessage(webgpuError)} `
+        : "") +
+      `The WASM model could not start: ${getErrorMessage(wasmError)} ` +
       "Check your connection for the model download, then try again.";
     throw new Error(initializationError);
   }
@@ -156,6 +145,54 @@ function getPipeline() {
     initialization = initializePipeline();
   }
   return initialization;
+}
+
+async function switchToWasm() {
+  gpuDisabled = true;
+  const previous = transcriber;
+  transcriber = null;
+  initialization = null;
+  activeMode = null;
+  try {
+    await previous?.dispose();
+  } catch {
+    // Disposal failures must not block the fallback.
+  }
+  return getPipeline();
+}
+
+async function transcribeSegments(
+  asr: AutomaticSpeechRecognitionPipeline,
+  segments: ReturnType<typeof segmentSpeech>["segments"],
+) {
+  const chunks: TranscriptChunk[] = [];
+  post({ type: "transcribe-progress", completed: 0, total: segments.length });
+
+  for (const [index, segment] of segments.entries()) {
+    const output = await asr(segment.samples);
+    const text = (Array.isArray(output) ? output[0].text : output.text).trim();
+
+    if (
+      activeMode === "webgpu" &&
+      isDegenerateTranscript(text, segment.speechSeconds)
+    ) {
+      throw new UnreliableGpuOutputError("The GPU produced unreliable text.");
+    }
+
+    const cleaned = collapseRepeats(text);
+    if (cleaned) {
+      chunks.push({
+        text: cleaned,
+        timestamp: [segment.startSeconds, segment.endSeconds],
+      });
+    }
+    post({
+      type: "transcribe-progress",
+      completed: index + 1,
+      total: segments.length,
+    });
+  }
+  return chunks;
 }
 
 workerScope.onmessage = async (
@@ -178,42 +215,65 @@ workerScope.onmessage = async (
   let stage: "loading-model" | "transcribing" = "loading-model";
 
   try {
-    const asr = await getPipeline();
-    const mode = activeMode;
-    if (!mode) {
+    const { segments } = segmentSpeech(audio);
+    if (segments.length === 0) {
+      post({
+        type: "error",
+        stage: "transcribing",
+        message:
+          "No speech was detected. Check that the recording is audible, then try again.",
+      });
+      return;
+    }
+
+    let asr = await getPipeline();
+    if (!activeMode) {
       throw new Error("The model did not select a supported execution mode.");
     }
 
     post({
       type: "status",
       status: "model-ready",
-      mode,
-      message: `Whisper is ready on ${mode === "webgpu" ? "WebGPU" : "WASM"}.`,
+      mode: activeMode,
+      message: `Whisper is ready on ${activeMode === "webgpu" ? "WebGPU" : "WASM"}.`,
     });
     stage = "transcribing";
     post({
       type: "status",
       status: "transcribing",
-      mode,
-      message:
-        "Transcribing audio in overlapping 30-second chunks. Long recordings may take several minutes.",
+      mode: activeMode,
+      message: "Transcribing the speech parts of your recording.",
     });
 
-    const result = await asr(audio, {
-      chunk_length_s: CHUNK_LENGTH_SECONDS,
-      stride_length_s: STRIDE_LENGTH_SECONDS,
-      return_timestamps: true,
-      task: "transcribe",
-    });
-    const chunks: TranscriptChunk[] | undefined = result.chunks?.map(
-      ({ text, timestamp }) => ({ text, timestamp }),
-    );
+    let chunks: TranscriptChunk[];
+    try {
+      chunks = await transcribeSegments(asr, segments);
+    } catch (error) {
+      if (!(error instanceof UnreliableGpuOutputError)) throw error;
+      stage = "loading-model";
+      post({
+        type: "status",
+        status: "fallback",
+        mode: "wasm",
+        message:
+          "The GPU output looked unreliable. Restarting with the WASM model.",
+      });
+      asr = await switchToWasm();
+      stage = "transcribing";
+      post({
+        type: "status",
+        status: "transcribing",
+        mode: "wasm",
+        message: "Transcribing the speech parts of your recording.",
+      });
+      chunks = await transcribeSegments(asr, segments);
+    }
 
     post({
       type: "complete",
-      text: result.text.trim(),
+      text: chunks.map((chunk) => chunk.text).join(" "),
       chunks,
-      mode,
+      mode: activeMode ?? "wasm",
     });
   } catch (error) {
     const message = getErrorMessage(error);

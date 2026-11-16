@@ -73,7 +73,8 @@ export function TranscriptionPanel({
           </p>
           <p className="transcription-note">
             Runs locally on your device. The first model download from Hugging
-            Face can be large; later visits may use your browser cache.
+            Face is large (roughly 80 MB, or about 150 MB with a compatible
+            GPU); later visits use your browser cache.
           </p>
         </div>
         {transcription.modelReady && transcription.mode && (
@@ -117,6 +118,8 @@ export function TranscriptionPanel({
         transcription.phase === "transcribing") && (
         <progress
           className="progress-bar transcription-progress"
+          max={transcription.transcribeProgress?.total}
+          value={transcription.transcribeProgress?.completed}
           aria-label={
             transcription.phase === "preparing"
               ? "Audio preparation progress"
@@ -124,6 +127,18 @@ export function TranscriptionPanel({
           }
         />
       )}
+
+      {transcription.phase === "transcribing" &&
+        transcription.transcribeProgress &&
+        transcription.transcribeProgress.total > 0 && (
+          <p className="model-file-progress">
+            Part {Math.min(
+              transcription.transcribeProgress.completed + 1,
+              transcription.transcribeProgress.total,
+            )}{" "}
+            of {transcription.transcribeProgress.total}
+          </p>
+        )}
 
       {transcription.error && (
         <div className="transcription-error" role="alert">
