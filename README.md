@@ -32,6 +32,28 @@ The server:
 `DEEPGRAM_API_KEY` is server-only. If transcription fails the student sees a
 generic message and can retry; there is no in-browser fallback.
 
+## Evaluation (rubric v2)
+
+`/api/cron/evaluation` (Supabase Cron, every minute) claims one job and grades
+the transcript with Groq. Each grading call is grounded in:
+
+- **The real problem**: statement, topics and hints fetched once from
+  LeetCode's public GraphQL endpoint and stored in `problems.description`
+  (paid-only problems have no public statement and are flagged).
+- **A reference card**: a cached per-problem answer key (optimal approach,
+  expected complexity, edge cases, common mistakes) generated once with
+  `GROQ_REFERENCE_MODEL` (default `openai/gpt-oss-120b`) in
+  `problem_reference_cards`, so every student is judged against the same key.
+
+The model must quote verbatim transcript evidence for every category score; the
+backend drops quotes it cannot find in the transcript, computes the overall
+score itself, and records `review_flags` (wrong problem, prompt injection,
+too-short transcript, missing statement, ...) for the mentor. Temperature is 0
+with a fixed seed. Run `supabase/sql/evaluation_v2.sql` before deploying.
+
+Groq's free tier limits `openai/gpt-oss-20b` to about 8,000 tokens per minute;
+one v2 evaluation uses roughly 4,000, so keep the Cron at one job per minute.
+
 ## Camera and microphone recording
 
 Students can record in the browser (`getUserMedia` and `MediaRecorder`, HTTPS or
