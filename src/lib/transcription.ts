@@ -16,6 +16,8 @@ export type TranscriptionStatus =
 export type TranscriptionRequest = {
   type: "transcribe";
   audio: Float32Array;
+  // Set when restarting in a fresh worker after the GPU path failed.
+  forceWasm?: boolean;
 };
 
 export type TranscriptionWorkerRequest = TranscriptionRequest;
@@ -31,6 +33,13 @@ export type TranscriptionWorkerMessage =
       type: "model-progress";
       file: string;
       progress: number | null;
+    }
+  | {
+      // The GPU path failed or produced unreliable text. A failed GPU session
+      // leaves the ONNX runtime unusable in this worker, so the audio is handed
+      // back and the caller must retry in a fresh worker with forceWasm.
+      type: "gpu-unavailable";
+      audio: Float32Array;
     }
   | {
       type: "transcribe-progress";
