@@ -18,6 +18,7 @@ type TranscriptionPhase =
 
 type TranscriptionState = {
   phase: TranscriptionPhase;
+  provider: "server" | "local" | null;
   modelReady: boolean;
   mode: ExecutionMode | null;
   modelProgress: number | null;
@@ -29,8 +30,13 @@ type TranscriptionState = {
   error: string;
 };
 
+const SERVER_TIMEOUT_MS = 70_000;
+// Statuses where the on-device model is a sensible fallback.
+const FALLBACK_STATUSES = new Set([429, 502, 503]);
+
 const INITIAL_STATE: TranscriptionState = {
   phase: "idle",
+  provider: null,
   modelReady: false,
   mode: null,
   modelProgress: null,
@@ -48,11 +54,14 @@ export function useTranscription() {
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
+  const serverAbortRef = useRef<AbortController | null>(null);
 
   const stopWorker = useCallback(() => {
     workerRef.current?.terminate();
     workerRef.current = null;
     busyRef.current = false;
+    serverAbortRef.current?.abort();
+    serverAbortRef.current = null;
   }, []);
 
   const cancel = useCallback(() => {
@@ -246,19 +255,104 @@ export function useTranscription() {
   }, []);
 
   const transcribe = useCallback(
-    async (audioBlob: Blob) => {
+    async (audioBlob: Blob | null, videoObjectKey?: string) => {
       if (busyRef.current) {
         return;
       }
 
       const requestId = ++requestIdRef.current;
       busyRef.current = true;
+      let fallbackNotice = "";
+
+      if (videoObjectKey) {
+        setState((current) => ({
+          ...current,
+          phase: "transcribing",
+          provider: "server",
+          modelProgress: null,
+          modelFile: "",
+          message: "Transcribing securely on the server…",
+          transcript: "",
+          chunks: [],
+          transcribeProgress: null,
+          error: "",
+        }));
+
+        const controller = new AbortController();
+        serverAbortRef.current = controller;
+        const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT_MS);
+        let serverMessage = "Server transcription is unavailable.";
+        let canFallBack = true;
+
+        try {
+          const response = await fetch("/api/transcription", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ videoObjectKey }),
+            signal: controller.signal,
+          });
+          const data = (await response.json().catch(() => null)) as {
+            transcript?: unknown;
+            message?: unknown;
+          } | null;
+          if (!mountedRef.current || requestId !== requestIdRef.current) {
+            return;
+          }
+
+          if (response.ok && typeof data?.transcript === "string") {
+            busyRef.current = false;
+            setState((current) => ({
+              ...current,
+              phase: "completed",
+              provider: "server",
+              modelProgress: null,
+              modelFile: "",
+              transcribeProgress: null,
+              message: "Transcription complete · Deepgram",
+              transcript: data.transcript as string,
+              chunks: [],
+              error: "",
+            }));
+            return;
+          }
+
+          if (typeof data?.message === "string") serverMessage = data.message;
+          canFallBack = FALLBACK_STATUSES.has(response.status);
+        } catch {
+          if (!mountedRef.current || requestId !== requestIdRef.current) {
+            return;
+          }
+          serverMessage = "Could not reach the transcription service.";
+        } finally {
+          clearTimeout(timer);
+          if (serverAbortRef.current === controller) {
+            serverAbortRef.current = null;
+          }
+        }
+
+        if (!canFallBack || !audioBlob) {
+          busyRef.current = false;
+          setState((current) => ({
+            ...current,
+            phase: "error",
+            message: "",
+            error:
+              canFallBack && !audioBlob
+                ? `${serverMessage} Use "Extract audio" below, then generate the transcript on your device.`
+                : serverMessage,
+          }));
+          return;
+        }
+        fallbackNotice = `${serverMessage} Using on-device transcription instead.`;
+      }
+
       setState((current) => ({
         ...current,
         phase: "preparing",
+        provider: "local",
         modelProgress: null,
         modelFile: "",
-        message: "Preparing extracted audio for Whisper…",
+        message: fallbackNotice || "Preparing extracted audio for Whisper…",
         transcript: "",
         chunks: [],
         transcribeProgress: null,
@@ -266,6 +360,9 @@ export function useTranscription() {
       }));
 
       try {
+        if (!audioBlob) {
+          throw new Error("No audio is available to transcribe.");
+        }
         const audio = await prepareAudio(audioBlob);
         if (!mountedRef.current || requestId !== requestIdRef.current) {
           return;

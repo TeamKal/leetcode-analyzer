@@ -8,6 +8,7 @@
     "start": "next start",
     "test:evaluation": "node --experimental-strip-types --test tests/evaluation.test.mjs",
     "test:cleanup": "node --experimental-strip-types --test tests/cleanup.test.mjs tests/cleanup-processor.test.mjs",
+    "test:deepgram": "node --experimental-strip-types --test tests/deepgram.test.mjs",
     "test:transcription": "node --experimental-strip-types --test tests/transcription.test.mjs",
     "lint": "eslint"
   },

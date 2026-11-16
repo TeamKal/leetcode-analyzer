@@ -627,8 +627,9 @@ function VideoAudioExtractor() {
             Leave the video.
           </h1>
           <p className="intro-copy">
-            Capture audio from your video locally, then transcribe it in your
-            browser. Your files never leave your device.
+            Record or upload your explanation. The video is stored privately
+            and transcribed in seconds; you can edit the transcript before you
+            submit.
           </p>
         </div>
 
@@ -846,16 +847,24 @@ function VideoAudioExtractor() {
                     </button>
                   </div>
 
-                  {transcriptionSource === "upload" && (
-                    <TranscriptionPanel
-                      transcription={transcription}
-                      audioBlob={audioBlob}
-                      fileName={audioFileName}
-                      {...submissionControls}
-                    />
-                  )}
                 </div>
               )}
+
+              {transcriptionSource === "upload" &&
+                (r2Upload.status === "success" || status === "done") && (
+                  <TranscriptionPanel
+                    transcription={transcription}
+                    audioBlob={audioBlob}
+                    videoObjectKey={
+                      r2Upload.status === "success" &&
+                      r2Upload.source === "upload"
+                        ? r2Upload.objectKey
+                        : ""
+                    }
+                    fileName={audioFileName || file.name}
+                    {...submissionControls}
+                  />
+                )}
 
               {status !== "done" && (
                 <div className="file-actions">
@@ -921,15 +930,16 @@ function VideoAudioExtractor() {
               />
             </svg>
             <span>
-              Recordings stay on your device; only model files are downloaded
-              when needed.
+              Videos are stored privately. Audio is sent to Deepgram only to be
+              transcribed, with model-training opt-out, and on-device
+              transcription is the fallback.
             </span>
           </div>
         </div>
 
         <footer className="page-footer">
           <span>Simple tools. Your files stay yours.</span>
-          <span>Local capture · Whisper transcription</span>
+          <span>Private storage · Deepgram transcription</span>
         </footer>
       </section>
     </main>

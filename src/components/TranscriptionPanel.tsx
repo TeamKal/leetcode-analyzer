@@ -17,12 +17,16 @@ export type SubmissionControls = {
 type Props = {
   transcription: ReturnType<typeof useTranscription>;
   audioBlob: Blob | null;
+  // Verified private-storage key. When set, transcription runs on the server
+  // first and falls back to the on-device model if that is unavailable.
+  videoObjectKey?: string;
   fileName: string;
 } & SubmissionControls;
 
 export function TranscriptionPanel({
   transcription,
   audioBlob,
+  videoObjectKey,
   fileName,
   canSubmitSolution,
   submissionFeedback,
@@ -72,12 +76,18 @@ export function TranscriptionPanel({
             Transcript
           </p>
           <p className="transcription-note">
-            Runs locally on your device. The first model download from Hugging
-            Face is large (roughly 80 MB, or about 150 MB with a compatible
-            GPU); later visits use your browser cache.
+            {videoObjectKey
+              ? "Your uploaded video is transcribed securely by our speech service (Deepgram), usually within seconds. If it is unavailable, your device is used instead; that first model download is large (roughly 80 MB), and later visits use your browser cache."
+              : "Runs locally on your device. The first model download from Hugging Face is large (roughly 80 MB, or about 150 MB with a compatible GPU); later visits use your browser cache."}
           </p>
         </div>
-        {transcription.modelReady && transcription.mode && (
+        {transcription.provider === "server" &&
+          transcription.phase === "completed" && (
+            <span className="execution-badge">Transcribed · Deepgram</span>
+          )}
+        {transcription.provider === "local" &&
+          transcription.modelReady &&
+          transcription.mode && (
           <span className="execution-badge">
             Model ready · {transcription.mode === "webgpu" ? "WebGPU" : "WASM"}
           </span>
@@ -239,11 +249,13 @@ export function TranscriptionPanel({
         <button
           className="button button-primary transcript-button"
           type="button"
-          disabled={!audioBlob || submissionInputsLocked}
+          disabled={
+            (!audioBlob && !videoObjectKey) || submissionInputsLocked
+          }
           onClick={() => {
-            if (audioBlob) {
+            if (audioBlob || videoObjectKey) {
               setCopyFeedback("");
-              void transcription.transcribe(audioBlob);
+              void transcription.transcribe(audioBlob, videoObjectKey);
             }
           }}
         >
