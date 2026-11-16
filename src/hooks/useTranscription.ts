@@ -25,6 +25,7 @@ type TranscriptionState = {
   message: string;
   transcript: string;
   chunks: TranscriptChunk[];
+  transcribeProgress: { completed: number; total: number } | null;
   error: string;
 };
 
@@ -37,6 +38,7 @@ const INITIAL_STATE: TranscriptionState = {
   message: "",
   transcript: "",
   chunks: [],
+  transcribeProgress: null,
   error: "",
 };
 
@@ -68,6 +70,7 @@ export function useTranscription() {
       message: "",
       transcript: "",
       chunks: [],
+      transcribeProgress: null,
       error: "",
     }));
   }, []);
@@ -87,6 +90,7 @@ export function useTranscription() {
       message: "Preparing extracted audio for Whisper…",
       transcript: "",
       chunks: [],
+      transcribeProgress: null,
       error: "",
     }));
 
@@ -156,6 +160,18 @@ export function useTranscription() {
             return;
           }
 
+          if (message.type === "transcribe-progress") {
+            setState((current) => ({
+              ...current,
+              phase: "transcribing",
+              transcribeProgress: {
+                completed: message.completed,
+                total: message.total,
+              },
+            }));
+            return;
+          }
+
           busyRef.current = false;
           if (message.type === "complete") {
             setState((current) => ({
@@ -165,6 +181,7 @@ export function useTranscription() {
               mode: message.mode,
               modelProgress: null,
               modelFile: "",
+              transcribeProgress: null,
               message: `Transcription complete · ${message.mode === "webgpu" ? "WebGPU" : "WASM"}`,
               transcript: message.text,
               chunks: message.chunks ?? [],
@@ -184,6 +201,7 @@ export function useTranscription() {
               message.stage === "transcribing" ? current.modelReady : false,
             modelProgress: null,
             modelFile: "",
+            transcribeProgress: null,
             message: "",
             error: message.message,
           }));

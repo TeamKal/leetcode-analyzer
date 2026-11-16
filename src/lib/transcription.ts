@@ -33,6 +33,11 @@ export type TranscriptionWorkerMessage =
       progress: number | null;
     }
   | {
+      type: "transcribe-progress";
+      completed: number;
+      total: number;
+    }
+  | {
       type: "complete";
       text: string;
       chunks?: TranscriptChunk[];
