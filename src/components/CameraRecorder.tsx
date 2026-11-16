@@ -75,10 +75,9 @@ export function CameraRecorder({
           <p className="eyebrow">CAMERA + MICROPHONE</p>
           <h2 id="camera-heading">Record a new video</h2>
           <p className="camera-description">
-            Camera video and microphone audio are recorded together, with a
-            separate microphone-only recording kept as an on-device
-            transcription fallback. The final original video is uploaded to
-            private storage after the take ends and is transcribed from there.
+            Camera video and microphone audio are recorded together. The final
+            original video is uploaded to private storage after the take ends
+            and is transcribed from there.
           </p>
         </div>
         {recording.phase === "recording" && (
@@ -275,7 +274,6 @@ export function CameraRecorder({
       {showTranscript && recording.audioBlob && (
         <TranscriptionPanel
           transcription={transcription}
-          audioBlob={recording.audioBlob}
           videoObjectKey={
             cameraR2Upload.status === "success" ? cameraR2Upload.objectKey : ""
           }

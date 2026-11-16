@@ -5,8 +5,7 @@
 -- The route reserves a slot BEFORE calling Deepgram (fails closed), so failed
 -- provider calls also count; the route passes the limit (currently 10).
 --
--- Until this file is run, /api/transcription returns 503 and the app falls
--- back to on-device Whisper.
+-- Until this file is run, /api/transcription returns 503 (fails closed).
 
 create table if not exists public.transcription_usage (
     id uuid primary key default gen_random_uuid(),

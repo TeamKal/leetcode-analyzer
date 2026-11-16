@@ -16,16 +16,14 @@ export type SubmissionControls = {
 
 type Props = {
   transcription: ReturnType<typeof useTranscription>;
-  audioBlob: Blob | null;
-  // Verified private-storage key. When set, transcription runs on the server
-  // first and falls back to the on-device model if that is unavailable.
-  videoObjectKey?: string;
+  // Verified private-storage key of the uploaded video. Empty until the upload
+  // has finished.
+  videoObjectKey: string;
   fileName: string;
 } & SubmissionControls;
 
 export function TranscriptionPanel({
   transcription,
-  audioBlob,
   videoObjectKey,
   fileName,
   canSubmitSolution,
@@ -76,28 +74,23 @@ export function TranscriptionPanel({
             Transcript
           </p>
           <p className="transcription-note">
-            {videoObjectKey
-              ? "Your uploaded video is transcribed securely by our speech service (Deepgram), usually within seconds. If it is unavailable, your device is used instead; that first model download is large (roughly 80 MB), and later visits use your browser cache."
-              : "Runs locally on your device. The first model download from Hugging Face is large (roughly 80 MB, or about 150 MB with a compatible GPU); later visits use your browser cache."}
+            Your uploaded video is transcribed securely by Deepgram, usually
+            within seconds. You can edit the transcript before you submit.
           </p>
         </div>
-        {transcription.provider === "server" &&
-          transcription.phase === "completed" && (
-            <span className="execution-badge">Transcribed · Deepgram</span>
-          )}
-        {transcription.provider === "local" &&
-          transcription.modelReady &&
-          transcription.mode && (
-          <span className="execution-badge">
-            Model ready · {transcription.mode === "webgpu" ? "WebGPU" : "WASM"}
-          </span>
+        {transcription.phase === "completed" && (
+          <span className="execution-badge">Transcribed · Deepgram</span>
         )}
       </div>
 
+      {!videoObjectKey && transcription.phase === "idle" && (
+        <div className="transcription-status" role="status" aria-live="polite">
+          Waiting for the video upload to finish…
+        </div>
+      )}
+
       {transcription.phase !== "idle" && (
         <div className="transcription-status" role="status" aria-live="polite">
-          {transcription.phase === "preparing" && "Preparing audio"}
-          {transcription.phase === "loading-model" && "Loading model"}
           {transcription.phase === "transcribing" && "Transcribing"}
           {transcription.phase === "completed" && "Completed"}
           {transcription.phase === "error" && "Failed"}
@@ -105,50 +98,12 @@ export function TranscriptionPanel({
         </div>
       )}
 
-      {transcription.phase === "loading-model" && (
-        <>
-          <progress
-            className="progress-bar transcription-progress"
-            max={100}
-            value={transcription.modelProgress ?? undefined}
-            aria-label="Whisper model download progress"
-          />
-          {transcription.modelFile && (
-            <p className="model-file-progress">
-              {transcription.modelFile.split("/").pop()}
-              {transcription.modelProgress !== null
-                ? ` · ${Math.round(transcription.modelProgress)}%`
-                : ""}
-            </p>
-          )}
-        </>
-      )}
-
-      {(transcription.phase === "preparing" ||
-        transcription.phase === "transcribing") && (
+      {transcription.phase === "transcribing" && (
         <progress
           className="progress-bar transcription-progress"
-          max={transcription.transcribeProgress?.total}
-          value={transcription.transcribeProgress?.completed}
-          aria-label={
-            transcription.phase === "preparing"
-              ? "Audio preparation progress"
-              : "Transcription in progress"
-          }
+          aria-label="Transcription in progress"
         />
       )}
-
-      {transcription.phase === "transcribing" &&
-        transcription.transcribeProgress &&
-        transcription.transcribeProgress.total > 0 && (
-          <p className="model-file-progress">
-            Part {Math.min(
-              transcription.transcribeProgress.completed + 1,
-              transcription.transcribeProgress.total,
-            )}{" "}
-            of {transcription.transcribeProgress.total}
-          </p>
-        )}
 
       {transcription.error && (
         <div className="transcription-error" role="alert">
@@ -169,7 +124,7 @@ export function TranscriptionPanel({
             disabled={submissionInputsLocked}
             placeholder={
               transcription.phase === "error"
-                ? "Transcript is unavailable. Type your corrected transcript here."
+                ? "Transcript is unavailable. Try again, or type your transcript here."
                 : "Transcript will appear here. You can correct any mistakes before final submission."
             }
             onChange={(event) => {
@@ -249,17 +204,15 @@ export function TranscriptionPanel({
         <button
           className="button button-primary transcript-button"
           type="button"
-          disabled={
-            (!audioBlob && !videoObjectKey) || submissionInputsLocked
-          }
+          disabled={!videoObjectKey || submissionInputsLocked}
           onClick={() => {
-            if (audioBlob || videoObjectKey) {
+            if (videoObjectKey) {
               setCopyFeedback("");
-              void transcription.transcribe(audioBlob, videoObjectKey);
+              void transcription.transcribe(videoObjectKey);
             }
           }}
         >
-          {transcription.phase === "completed"
+          {transcription.phase === "completed" || transcription.phase === "error"
             ? "Generate again"
             : "Generate Transcript"}
         </button>

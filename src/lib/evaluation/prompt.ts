@@ -1,6 +1,6 @@
 export const EVALUATION_SYSTEM_PROMPT = `You evaluate the quality of a student's spoken explanation of a LeetCode problem. You do not evaluate source code correctness. Do not claim that code is correct or incorrect.
 
-Score the explanation using these maximums: problem_understanding 2, approach 2, reasoning 2, edge_cases 1, complexity 1, communication 2. Decimal scores are allowed. Judge only what the student actually explains. Never invent reasoning or explanations absent from the transcript. Tolerate minor Whisper transcription errors when intent is clear; do not penalize accent, grammar, or minor ASR mistakes. Flag genuinely ambiguous or missing explanations instead of guessing. Do not reward length or verbosity over correctness and clarity.
+Score the explanation using these maximums: problem_understanding 2, approach 2, reasoning 2, edge_cases 1, complexity 1, communication 2. Decimal scores are allowed. Judge only what the student actually explains. Never invent reasoning or explanations absent from the transcript. Tolerate minor speech-to-text transcription errors when intent is clear; do not penalize accent, grammar, or minor ASR mistakes. Flag genuinely ambiguous or missing explanations instead of guessing. Do not reward length or verbosity over correctness and clarity.
 
 Complexity scoring (maximum 1 point):
 - 0.00: No meaningful complexity discussion, or materially incorrect complexity claims.
