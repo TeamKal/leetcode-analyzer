@@ -20,7 +20,10 @@ function redirectWithAuthCookies(response: NextResponse, destination: URL) {
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  if (pathname === "/api/cron/evaluation") {
+  if (
+    pathname === "/api/cron/evaluation" ||
+    pathname === "/api/cron/video-cleanup"
+  ) {
     return NextResponse.next({ request });
   }
 
