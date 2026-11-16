@@ -11,6 +11,7 @@ import {
   type SubmissionFeedback,
 } from "../components/TranscriptionPanel";
 import { extractAudioFromVideo } from "../lib/videoAudioExtraction";
+import { clearLegacyWhisperCache } from "../lib/legacyWhisperCache";
 import { LeetCodeProblemInput } from "../components/LeetCodeProblemInput";
 import { parseLeetCodeProblemUrl } from "../lib/leetcode";
 import { uploadVideoToR2 } from "@/lib/r2/uploadVideo";
@@ -310,6 +311,10 @@ function VideoAudioExtractor() {
   );
 
   useEffect(() => () => extractionAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    void clearLegacyWhisperCache();
+  }, []);
 
   function chooseFile(candidate: File) {
     if (submissionInputsLocked) {
