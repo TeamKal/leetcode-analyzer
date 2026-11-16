@@ -850,11 +850,9 @@ function VideoAudioExtractor() {
                 </div>
               )}
 
-              {transcriptionSource === "upload" &&
-                (r2Upload.status === "success" || status === "done") && (
+              {transcriptionSource === "upload" && (
                   <TranscriptionPanel
                     transcription={transcription}
-                    audioBlob={audioBlob}
                     videoObjectKey={
                       r2Upload.status === "success" &&
                       r2Upload.source === "upload"
@@ -931,8 +929,7 @@ function VideoAudioExtractor() {
             </svg>
             <span>
               Videos are stored privately. Audio is sent to Deepgram only to be
-              transcribed, with model-training opt-out, and on-device
-              transcription is the fallback.
+              transcribed, with model-training opt-out.
             </span>
           </div>
         </div>

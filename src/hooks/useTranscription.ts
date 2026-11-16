@@ -1,427 +1,135 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  prepareAudio,
-  type ExecutionMode,
-  type TranscriptChunk,
-  type TranscriptionWorkerMessage,
-} from "../lib/transcription";
 
-type TranscriptionPhase =
-  | "idle"
-  | "preparing"
-  | "loading-model"
-  | "transcribing"
-  | "completed"
-  | "error";
+type TranscriptionPhase = "idle" | "transcribing" | "completed" | "error";
 
 type TranscriptionState = {
   phase: TranscriptionPhase;
-  provider: "server" | "local" | null;
-  modelReady: boolean;
-  mode: ExecutionMode | null;
-  modelProgress: number | null;
-  modelFile: string;
   message: string;
   transcript: string;
-  chunks: TranscriptChunk[];
-  transcribeProgress: { completed: number; total: number } | null;
   error: string;
 };
 
 const SERVER_TIMEOUT_MS = 70_000;
-// Statuses where the on-device model is a sensible fallback.
-const FALLBACK_STATUSES = new Set([429, 502, 503]);
 
 const INITIAL_STATE: TranscriptionState = {
   phase: "idle",
-  provider: null,
-  modelReady: false,
-  mode: null,
-  modelProgress: null,
-  modelFile: "",
   message: "",
   transcript: "",
-  chunks: [],
-  transcribeProgress: null,
   error: "",
 };
 
+// Transcription runs on the server (Deepgram) from the verified private video.
 export function useTranscription() {
   const [state, setState] = useState(INITIAL_STATE);
-  const workerRef = useRef<Worker | null>(null);
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
-  const serverAbortRef = useRef<AbortController | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const stopWorker = useCallback(() => {
-    workerRef.current?.terminate();
-    workerRef.current = null;
+  const stopRequest = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     busyRef.current = false;
-    serverAbortRef.current?.abort();
-    serverAbortRef.current = null;
   }, []);
 
   const cancel = useCallback(() => {
     requestIdRef.current += 1;
-    stopWorker();
+    stopRequest();
     setState(INITIAL_STATE);
-  }, [stopWorker]);
+  }, [stopRequest]);
 
   const clearTranscript = useCallback(() => {
-    setState((current) => ({
-      ...current,
-      phase: "idle",
-      modelProgress: null,
-      modelFile: "",
-      message: "",
+    setState({ ...INITIAL_STATE });
+  }, []);
+
+  const transcribe = useCallback(async (videoObjectKey: string) => {
+    if (busyRef.current || !videoObjectKey) {
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    busyRef.current = true;
+    setState({
+      phase: "transcribing",
+      message: "Transcribing your video…",
       transcript: "",
-      chunks: [],
-      transcribeProgress: null,
       error: "",
-    }));
-  }, []);
+    });
 
-  const startWorker = useCallback(function start(): Worker {
-    const worker = new Worker(
-      new URL("../workers/transcription.worker.ts", import.meta.url),
-      { type: "module", name: "local-whisper-transcription" },
-    );
-    workerRef.current = worker;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, SERVER_TIMEOUT_MS);
 
-    const dropWorker = () => {
-      worker.terminate();
-      if (workerRef.current === worker) {
-        workerRef.current = null;
-      }
-    };
-
-    worker.onmessage = (event: MessageEvent<TranscriptionWorkerMessage>) => {
-      if (!mountedRef.current || workerRef.current !== worker) {
-        return;
-      }
-
-      const message = event.data;
-      if (message.type === "status") {
-        setState((current) => ({
-          ...current,
-          phase:
-            message.status === "transcribing"
-              ? "transcribing"
-              : message.status === "model-ready"
-                ? current.phase
-                : "loading-model",
-          modelReady:
-            message.status === "model-ready" ? true : current.modelReady,
-          mode: message.mode ?? current.mode,
-          modelProgress:
-            message.status === "loading-model" || message.status === "fallback"
-              ? null
-              : current.modelProgress,
-          modelFile:
-            message.status === "loading-model" || message.status === "fallback"
-              ? ""
-              : current.modelFile,
-          message: message.message,
-        }));
-        return;
-      }
-
-      if (message.type === "model-progress") {
-        setState((current) => ({
-          ...current,
-          phase: "loading-model",
-          modelProgress: message.progress,
-          modelFile: message.file,
-          message: "Downloading Whisper model files…",
-        }));
-        return;
-      }
-
-      if (message.type === "transcribe-progress") {
-        setState((current) => ({
-          ...current,
-          phase: "transcribing",
-          transcribeProgress: {
-            completed: message.completed,
-            total: message.total,
-          },
-        }));
-        return;
-      }
-
-      if (message.type === "gpu-unavailable") {
-        // A failed GPU session poisons the ONNX runtime in that worker, so the
-        // WASM retry must run in a brand-new worker.
-        dropWorker();
-        setState((current) => ({
-          ...current,
-          phase: "loading-model",
-          modelReady: false,
-          mode: "wasm",
-          modelProgress: null,
-          modelFile: "",
-          transcribeProgress: null,
-          message:
-            "The GPU could not run Whisper reliably. Restarting with the WASM model.",
-        }));
-        try {
-          const wasmWorker = start();
-          wasmWorker.postMessage(
-            { type: "transcribe", audio: message.audio, forceWasm: true },
-            [message.audio.buffer],
-          );
-        } catch {
-          busyRef.current = false;
-          setState((current) => ({
-            ...current,
-            phase: "error",
-            message: "",
-            error:
-              "The transcription worker could not restart. Reload the page and try again.",
-          }));
-        }
-        return;
-      }
-
+    const fail = (error: string) => {
       busyRef.current = false;
-      if (message.type === "complete") {
-        setState((current) => ({
-          ...current,
-          phase: "completed",
-          modelReady: true,
-          mode: message.mode,
-          modelProgress: null,
-          modelFile: "",
-          transcribeProgress: null,
-          message: `Transcription complete · ${message.mode === "webgpu" ? "WebGPU" : "WASM"}`,
-          transcript: message.text,
-          chunks: message.chunks ?? [],
-          error: message.text
-            ? ""
-            : "No speech was recognized. Check that the recording contains clear speech.",
-        }));
+      setState({ phase: "error", message: "", transcript: "", error });
+    };
+
+    try {
+      const response = await fetch("/api/transcription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoObjectKey }),
+        signal: controller.signal,
+      });
+      const data = (await response.json().catch(() => null)) as {
+        transcript?: unknown;
+        message?: unknown;
+      } | null;
+      if (!mountedRef.current || requestId !== requestIdRef.current) {
         return;
       }
 
-      dropWorker();
-      setState((current) => ({
-        ...current,
-        phase: "error",
-        modelReady:
-          message.stage === "transcribing" ? current.modelReady : false,
-        modelProgress: null,
-        modelFile: "",
-        transcribeProgress: null,
-        message: "",
-        error: message.message,
-      }));
-    };
-
-    worker.onerror = (event) => {
-      event.preventDefault();
-      dropWorker();
-      busyRef.current = false;
-      if (mountedRef.current) {
-        setState((current) => ({
-          ...current,
-          phase: "error",
-          message: "",
-          modelProgress: null,
-          error:
-            "The transcription worker stopped unexpectedly. Try again; your audio has not been uploaded.",
-        }));
-      }
-    };
-
-    worker.onmessageerror = () => {
-      dropWorker();
-      busyRef.current = false;
-      if (mountedRef.current) {
-        setState((current) => ({
-          ...current,
-          phase: "error",
-          message: "",
-          modelProgress: null,
-          error:
-            "The transcription worker returned an unreadable response. Try again.",
-        }));
-      }
-    };
-
-    return worker;
-  }, []);
-
-  const transcribe = useCallback(
-    async (audioBlob: Blob | null, videoObjectKey?: string) => {
-      if (busyRef.current) {
-        return;
-      }
-
-      const requestId = ++requestIdRef.current;
-      busyRef.current = true;
-      let fallbackNotice = "";
-
-      if (videoObjectKey) {
-        setState((current) => ({
-          ...current,
-          phase: "transcribing",
-          provider: "server",
-          modelProgress: null,
-          modelFile: "",
-          message: "Transcribing securely on the server…",
-          transcript: "",
-          chunks: [],
-          transcribeProgress: null,
-          error: "",
-        }));
-
-        const controller = new AbortController();
-        serverAbortRef.current = controller;
-        const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT_MS);
-        let serverMessage = "Server transcription is unavailable.";
-        let canFallBack = true;
-
-        try {
-          const response = await fetch("/api/transcription", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ videoObjectKey }),
-            signal: controller.signal,
-          });
-          const data = (await response.json().catch(() => null)) as {
-            transcript?: unknown;
-            message?: unknown;
-          } | null;
-          if (!mountedRef.current || requestId !== requestIdRef.current) {
-            return;
-          }
-
-          if (response.ok && typeof data?.transcript === "string") {
-            busyRef.current = false;
-            setState((current) => ({
-              ...current,
-              phase: "completed",
-              provider: "server",
-              modelProgress: null,
-              modelFile: "",
-              transcribeProgress: null,
-              message: "Transcription complete · Deepgram",
-              transcript: data.transcript as string,
-              chunks: [],
-              error: "",
-            }));
-            return;
-          }
-
-          if (typeof data?.message === "string") serverMessage = data.message;
-          canFallBack = FALLBACK_STATUSES.has(response.status);
-        } catch {
-          if (!mountedRef.current || requestId !== requestIdRef.current) {
-            return;
-          }
-          serverMessage = "Could not reach the transcription service.";
-        } finally {
-          clearTimeout(timer);
-          if (serverAbortRef.current === controller) {
-            serverAbortRef.current = null;
-          }
-        }
-
-        if (!canFallBack || !audioBlob) {
-          busyRef.current = false;
-          setState((current) => ({
-            ...current,
-            phase: "error",
-            message: "",
-            error:
-              canFallBack && !audioBlob
-                ? `${serverMessage} Use "Extract audio" below, then generate the transcript on your device.`
-                : serverMessage,
-          }));
-          return;
-        }
-        fallbackNotice = `${serverMessage} Using on-device transcription instead.`;
-      }
-
-      setState((current) => ({
-        ...current,
-        phase: "preparing",
-        provider: "local",
-        modelProgress: null,
-        modelFile: "",
-        message: fallbackNotice || "Preparing extracted audio for Whisper…",
-        transcript: "",
-        chunks: [],
-        transcribeProgress: null,
-        error: "",
-      }));
-
-      try {
-        if (!audioBlob) {
-          throw new Error("No audio is available to transcribe.");
-        }
-        const audio = await prepareAudio(audioBlob);
-        if (!mountedRef.current || requestId !== requestIdRef.current) {
-          return;
-        }
-
-        let worker = workerRef.current;
-        if (!worker) {
-          if (typeof Worker === "undefined") {
-            throw new Error(
-              "This browser does not support background workers required for local transcription.",
-            );
-          }
-          worker = startWorker();
-        }
-
-        setState((current) => ({
-          ...current,
-          phase: current.modelReady ? "transcribing" : "loading-model",
-          message: current.modelReady
-            ? "Starting transcription…"
-            : "Starting local Whisper model…",
-        }));
-        worker.postMessage({ type: "transcribe", audio }, [audio.buffer]);
-      } catch (error) {
-        if (requestId !== requestIdRef.current) {
-          return;
-        }
+      if (response.ok && typeof data?.transcript === "string") {
         busyRef.current = false;
-        if (mountedRef.current) {
-          setState((current) => ({
-            ...current,
-            phase: "error",
-            message: "",
-            modelProgress: null,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Audio preparation failed unexpectedly.",
-          }));
-        }
+        setState({
+          phase: "completed",
+          message: "Transcription complete",
+          transcript: data.transcript,
+          error: "",
+        });
+        return;
       }
-    },
-    [startWorker],
-  );
+
+      fail(
+        typeof data?.message === "string"
+          ? data.message
+          : "Transcription is unavailable. Try again in a moment.",
+      );
+    } catch {
+      if (!mountedRef.current || requestId !== requestIdRef.current) {
+        return;
+      }
+      fail(
+        timedOut
+          ? "Transcription took too long. Try again."
+          : "Could not reach the transcription service. Check your connection and try again.",
+      );
+    } finally {
+      clearTimeout(timer);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      stopWorker();
+      stopRequest();
     };
-  }, [stopWorker]);
+  }, [stopRequest]);
 
   return {
     ...state,
-    isBusy:
-      state.phase === "preparing" ||
-      state.phase === "loading-model" ||
-      state.phase === "transcribing",
+    isBusy: state.phase === "transcribing",
     updateTranscript: (nextTranscript: string) => {
       setState((current) => ({
         ...current,
