@@ -76,9 +76,9 @@ export function CameraRecorder({
           <h2 id="camera-heading">Record a new video</h2>
           <p className="camera-description">
             Camera video and microphone audio are recorded together, with a
-            separate microphone-only recording used for local Whisper
-            transcription. The final original video is uploaded to private
-            storage after the take ends.
+            separate microphone-only recording kept as an on-device
+            transcription fallback. The final original video is uploaded to
+            private storage after the take ends and is transcribed from there.
           </p>
         </div>
         {recording.phase === "recording" && (
@@ -276,6 +276,9 @@ export function CameraRecorder({
         <TranscriptionPanel
           transcription={transcription}
           audioBlob={recording.audioBlob}
+          videoObjectKey={
+            cameraR2Upload.status === "success" ? cameraR2Upload.objectKey : ""
+          }
           fileName="videomind-recording"
           {...submissionControls}
         />
