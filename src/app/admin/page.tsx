@@ -1,8 +1,12 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOut } from "@/app/actions";
 import { getCurrentApplicationAccess } from "@/lib/supabase/authorization";
 import { createClient } from "@/lib/supabase/server";
+import { AppHeader } from "@/components/ui/AppHeader";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState, Section, tableClasses } from "@/components/ui/Section";
+import { MentorProvisioning } from "./MentorProvisioning";
 import { StudentManagement, type AdminStudent } from "./StudentManagement";
 
 const PAGE_SIZE = 1000;
@@ -144,118 +148,101 @@ export default async function AdminPage() {
     }));
   }
 
+  const mentorClasses = new Map<string, string[]>();
+  dashboardClasses.forEach((classRow) => {
+    if (!classRow.mentor_id) return;
+    mentorClasses.set(classRow.mentor_id, [
+      ...(mentorClasses.get(classRow.mentor_id) ?? []),
+      classRow.name,
+    ]);
+  });
+  const mentors = mentorResult.data ?? [];
+
   return (
-    <main className="admin-shell">
-      <header className="admin-topbar">
-        <Link className="brand" href="/" aria-label="Local Audio home">
-          <span className="brand-mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </span>
-          <span>local audio</span>
-        </Link>
-        <div className="topbar-actions">
-          <span className="admin-identity">Administrator</span>
-          <form action={signOut} className="signout-form">
-            <button className="text-button" type="submit">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
+    <div className="ds min-h-screen bg-page font-sans text-ink antialiased">
+      <AppHeader signOutAction={signOut} wide roleLabel="Administrator" />
 
-      <div className="admin-layout">
-        <aside className="admin-sidebar">
-          <p className="admin-nav-label">MANAGEMENT</p>
-          <nav className="admin-nav" aria-label="Admin dashboard">
-            <a className="admin-nav-link is-active" href="#overview">
-              Overview
-            </a>
-            <a className="admin-nav-link" href="#classes">
-              Classes
-            </a>
-            <span className="admin-nav-link is-upcoming" aria-disabled="true">
-              Mentors <span>Coming soon</span>
-            </span>
-            <a className="admin-nav-link" href="#students">
-              Students
-            </a>
-          </nav>
-        </aside>
+      <main className="mx-auto w-full max-w-[1120px] px-4 pb-20 pt-8 sm:px-6">
+        <h1 className="text-[28px] font-semibold tracking-[-0.03em] sm:text-[34px]">
+          Overview
+        </h1>
+        <p className="mt-2 max-w-[58ch] text-[15px] leading-7 text-muted">
+          A snapshot of classes, mentors and student enrollment.
+        </p>
 
-        <div className="admin-main">
-          <section className="admin-heading" id="overview">
-            <div>
-              <p className="eyebrow">ADMINISTRATION</p>
-              <h1>Overview</h1>
-              <p className="admin-description">
-                A snapshot of classes, mentors, and student enrollment.
-              </p>
-            </div>
-          </section>
+        <nav
+          aria-label="Admin sections"
+          className="mt-6 flex gap-1 overflow-x-auto border-b border-line"
+        >
+          {[
+            ["#classes", "Classes"],
+            ["#mentors", "Mentors"],
+            ["#students", "Students"],
+          ].map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              className="rounded-t-md px-3 py-2.5 text-[13px] font-semibold text-ink-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand"
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
 
+        <div className="mt-6 space-y-6">
           {hasDataError ? (
-            <DashboardError />
+            <Alert>
+              Dashboard data could not be loaded. Check your access and try
+              again.
+            </Alert>
           ) : (
             <>
-              <section className="admin-metrics" aria-label="Overview totals">
+              <section
+                aria-label="Overview totals"
+                className="grid gap-4 sm:grid-cols-3"
+              >
                 <Metric label="Total classes" value={classesCount} />
                 <Metric label="Total mentors" value={mentorsCount} />
                 <Metric label="Enrolled students" value={studentsCount} />
               </section>
 
-              <section className="admin-section" id="classes">
-                <div className="admin-section-heading">
-                  <div>
-                    <p className="eyebrow">ORGANIZATION</p>
-                    <h2>Classes</h2>
-                  </div>
-                  <span className="admin-count">
+              <Section
+                id="classes"
+                title="Classes"
+                aside={
+                  <Badge>
                     {classesCount} {classesCount === 1 ? "class" : "classes"}
-                  </span>
-                </div>
-
+                  </Badge>
+                }
+              >
                 {dashboardClasses.length === 0 ? (
-                  <div className="admin-empty-state">
-                    <p>No classes yet</p>
-                    <span>Classes will appear here when they are created.</span>
-                  </div>
+                  <EmptyState title="No classes yet">
+                    Classes will appear here when they are created.
+                  </EmptyState>
                 ) : (
-                  <div className="admin-table-wrap">
-                    <table className="admin-table">
+                  <div className={tableClasses.wrap}>
+                    <table className={tableClasses.table}>
                       <thead>
                         <tr>
-                          <th scope="col">Class</th>
-                          <th scope="col">Mentor</th>
-                          <th scope="col">Students</th>
+                          <th scope="col" className={tableClasses.th}>Class</th>
+                          <th scope="col" className={tableClasses.th}>Mentor</th>
+                          <th scope="col" className={tableClasses.th}>Students</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dashboardClasses.map((classRow) => (
                           <tr key={classRow.id}>
-                            <td className="admin-class-name">
+                            <td className={`${tableClasses.td} font-medium text-ink`}>
                               {classRow.name}
                             </td>
-                            <td>
+                            <td className={tableClasses.td}>
                               {classRow.mentor ? (
-                                <span className="admin-mentor-cell">
-                                  <strong>
-                                    {classRow.mentor.full_name ||
-                                      classRow.mentor.email ||
-                                      "Mentor"}
-                                  </strong>
-                                  {classRow.mentor.email && (
-                                    <span>{classRow.mentor.email}</span>
-                                  )}
-                                </span>
+                                <MentorName mentor={classRow.mentor} />
                               ) : (
-                                <span className="admin-muted">Unassigned</span>
+                                <span className="text-faint">Unassigned</span>
                               )}
                             </td>
-                            <td className="admin-student-count">
+                            <td className={`${tableClasses.td} tabular-nums`}>
                               {classRow.studentCount}
                             </td>
                           </tr>
@@ -264,30 +251,71 @@ export default async function AdminPage() {
                     </table>
                   </div>
                 )}
-              </section>
+              </Section>
+
+              <Section
+                id="mentors"
+                title="Mentors"
+                description="Give an existing Google account the mentor role for a class."
+                aside={
+                  <Badge>
+                    {mentorsCount} {mentorsCount === 1 ? "mentor" : "mentors"}
+                  </Badge>
+                }
+              >
+                {mentors.length > 0 && (
+                  <ul className="mb-6 divide-y divide-line rounded-lg border border-line">
+                    {mentors.map((mentor) => (
+                      <li
+                        key={mentor.id}
+                        className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                      >
+                        <MentorName mentor={mentor} />
+                        <span className="text-[13px] text-muted">
+                          {mentorClasses.get(mentor.id)?.join(", ") ??
+                            "No class yet"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <MentorProvisioning
+                  classes={dashboardClasses.map(({ id, name }) => ({
+                    id,
+                    name,
+                  }))}
+                />
+              </Section>
 
               <StudentManagement students={students} />
             </>
           )}
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="admin-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="rounded-xl border border-line bg-surface p-5">
+      <p className="text-[13px] font-medium text-muted">{label}</p>
+      <p className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.03em] tabular-nums">
+        {value}
+      </p>
     </div>
   );
 }
 
-function DashboardError() {
+function MentorName({ mentor }: { mentor: MentorRow }) {
   return (
-    <div className="admin-error" role="alert">
-      Dashboard data could not be loaded. Check your access and try again.
-    </div>
+    <span className="flex min-w-0 flex-col">
+      <span className="font-medium text-ink">
+        {mentor.full_name || mentor.email || "Mentor"}
+      </span>
+      {mentor.email && mentor.full_name && (
+        <span className="text-[13px] text-muted">{mentor.email}</span>
+      )}
+    </span>
   );
 }

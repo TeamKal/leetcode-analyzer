@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
+import { StepCard } from "@/components/ui/StepCard";
 import { parseLeetCodeProblemUrl } from "../lib/leetcode";
 
 type ProblemMetadata = {
@@ -9,6 +14,119 @@ type ProblemMetadata = {
 };
 
 type MetadataState = "idle" | "loading" | "ready" | "unavailable";
+
+export type ProblemResult = {
+  href: string;
+  slug: string;
+  state: MetadataState;
+  metadata: ProblemMetadata | null;
+};
+
+type ViewProps = {
+  input: string;
+  onInputChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  disabled: boolean;
+  error: string;
+  result: ProblemResult | null;
+};
+
+const difficultyTone = {
+  Easy: "success",
+  Medium: "warning",
+  Hard: "danger",
+} as const;
+
+/** The look of step 1. All state lives in `LeetCodeProblemInput` below. */
+export function ProblemStepView({
+  input,
+  onInputChange,
+  onSubmit,
+  disabled,
+  error,
+  result,
+}: ViewProps) {
+  return (
+    <StepCard
+      number={1}
+      title="Pick the problem"
+      description="Paste the link to the LeetCode problem you solved."
+      state={result ? "done" : "active"}
+    >
+      <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
+        <label className="min-w-0 flex-1">
+          <span className="sr-only">Problem or submission URL</span>
+          <input
+            autoComplete="url"
+            type="url"
+            inputMode="url"
+            placeholder="https://leetcode.com/problems/two-sum/"
+            value={input}
+            onChange={(event) => onInputChange(event.target.value)}
+            aria-describedby="leetcode-url-help"
+            required
+            disabled={disabled}
+            className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3.5 text-sm text-ink outline-none transition-shadow placeholder:text-faint focus-visible:border-brand focus-visible:shadow-[0_0_0_3px_rgba(239,56,55,0.15)] disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        </label>
+        <Button variant="secondary" type="submit" disabled={disabled}>
+          Identify problem
+        </Button>
+      </form>
+
+      <p id="leetcode-url-help" className="mt-2 text-xs leading-5 text-faint">
+        Problem links and links to one of your submissions both work. We only
+        read the link; we do not check your code on LeetCode.
+      </p>
+
+      {error && (
+        <div className="mt-3">
+          <Alert>{error}</Alert>
+        </div>
+      )}
+
+      {result && (
+        <div
+          aria-live="polite"
+          className="mt-4 rounded-lg border border-line bg-surface-2 px-4 py-3"
+        >
+          {result.state === "loading" && (
+            <p className="flex items-center gap-2 text-sm text-muted">
+              <Spinner className="size-3.5" />
+              Looking up the problem…
+            </p>
+          )}
+          {result.state === "ready" && result.metadata && (
+            <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              <span className="text-[15px] font-semibold tracking-[-0.01em]">
+                {result.metadata.title}
+              </span>
+              {result.metadata.difficulty && (
+                <Badge tone={difficultyTone[result.metadata.difficulty]}>
+                  {result.metadata.difficulty}
+                </Badge>
+              )}
+            </p>
+          )}
+          {result.state === "unavailable" && (
+            <p className="text-sm text-muted">
+              We couldn&apos;t look up the problem details, but your link is saved
+              and will be used.
+            </p>
+          )}
+          <a
+            href={result.href}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 block truncate text-xs text-muted underline-offset-2 hover:text-ink hover:underline"
+          >
+            {result.href}
+          </a>
+        </div>
+      )}
+    </StepCard>
+  );
+}
 
 type Props = {
   submissionUrl: string;
@@ -38,7 +156,7 @@ export function LeetCodeProblemInput({
       onSubmissionUrlChange("");
       setProblemSlug("");
       setError(
-        "Enter a valid LeetCode problem URL, optionally including its submissions path.",
+        "That doesn't look like a LeetCode problem link. Try something like leetcode.com/problems/two-sum/.",
       );
       return;
     }
@@ -76,78 +194,28 @@ export function LeetCodeProblemInput({
   }
 
   return (
-    <section
-      className="leetcode-input-section"
-      aria-labelledby="leetcode-input-title"
-    >
-      <div className="leetcode-input-heading">
-        <div>
-          <p className="eyebrow">PROBLEM</p>
-          <h2 id="leetcode-input-title">Identify the LeetCode problem</h2>
-        </div>
-        <span className="local-state-label">Not saved</span>
-      </div>
-
-      <form className="leetcode-url-form" onSubmit={identifyProblem}>
-        <label className="leetcode-url-field">
-          Problem or submission URL
-          <input
-            autoComplete="url"
-            type="url"
-            inputMode="url"
-            placeholder="https://leetcode.com/problems/two-sum/"
-            value={input}
-            onChange={(event) => {
-              setInput(event.target.value);
-              onSubmissionUrlChange("");
-              setProblemSlug("");
-              setMetadata(null);
-              setMetadataState("idle");
-            }}
-            aria-describedby="leetcode-url-help"
-            required
-            disabled={disabled}
-          />
-        </label>
-        <button
-          className="button button-secondary"
-          type="submit"
-          disabled={disabled}
-        >
-          Identify problem
-        </button>
-      </form>
-
-      <p className="leetcode-url-help" id="leetcode-url-help">
-        Accepts problem URLs and URLs with a numeric submissions path. This
-        checks the URL format only; it does not retrieve or verify submitted
-        code.
-      </p>
-
-      {error && (
-        <p className="leetcode-url-error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {submissionUrl && (
-        <div className="leetcode-problem-result" aria-live="polite">
-          <a href={submissionUrl} target="_blank" rel="noreferrer">
-            {submissionUrl}
-          </a>
-          <p>Problem slug: {problemSlug}</p>
-          {metadataState === "loading" && <p>Looking up problem metadata…</p>}
-          {metadataState === "ready" && metadata && (
-            <p>
-              {metadata.title}
-              {metadata.difficulty ? ` · ${metadata.difficulty}` : ""}
-            </p>
-          )}
-          {metadataState === "unavailable" && (
-            <p>Problem metadata is unavailable. The valid URL is retained.</p>
-          )}
-        </div>
-      )}
-    </section>
+    <ProblemStepView
+      input={input}
+      onInputChange={(value) => {
+        setInput(value);
+        onSubmissionUrlChange("");
+        setProblemSlug("");
+        setMetadata(null);
+        setMetadataState("idle");
+      }}
+      onSubmit={identifyProblem}
+      disabled={disabled}
+      error={error}
+      result={
+        submissionUrl
+          ? {
+              href: submissionUrl,
+              slug: problemSlug,
+              state: metadataState,
+              metadata,
+            }
+          : null
+      }
+    />
   );
 }

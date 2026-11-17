@@ -1,7 +1,9 @@
 export default function AdminLoading() {
   return (
-    <main className="admin-shell" aria-busy="true">
-      <div className="admin-loading">Loading dashboard…</div>
-    </main>
+    <div className="ds min-h-screen bg-page" aria-busy="true">
+      <p className="mx-auto max-w-[1120px] px-4 py-10 text-sm text-muted sm:px-6">
+        Loading dashboard…
+      </p>
+    </div>
   );
 }

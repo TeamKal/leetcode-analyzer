@@ -1,0 +1,12 @@
+/*
+ * Right-panel backdrop: decorative only, never takes pointer events and never
+ * changes the layout.
+ */
+
+/* The waves hang from the top edge and fade downward. */
+.pb-waves-top {
+  transform: scaleY(-1);
+  -webkit-mask-image: linear-gradient(to top, #000 18%, transparent 78%);
+  mask-image: linear-gradient(to top, #000 18%, transparent 78%);
+  opacity: 0.8;
+}

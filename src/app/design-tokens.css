@@ -1,0 +1,246 @@
+/*
+ * Design tokens for "Student Tracker".
+ *
+ * Copied from the live sibling product https://dojoanalyzer.vercel.app
+ * (Kalvium "Dojo Belt Analyzer") on 2026-11-16 so both products share one visual
+ * language. Values are the DECLARED custom properties of that site (light and
+ * dark), not eyedropped pixels.
+ *
+ * SCOPED TO `.ds`. The legacy globals.css still defines --surface, --muted,
+ * --line, ... with different values on :root, so these tokens only apply inside
+ * an element with class "ds" (redesigned pages put it on their root element).
+ * When the last legacy page is gone, change `.ds` back to `:root`.
+ *
+ * Fonts: Geist (sans) and Geist Mono, loaded with next/font/google in layout.tsx
+ * as --font-geist-sans / --font-geist-mono.
+ */
+
+.ds {
+  /* Surfaces */
+  --page: #f7f7f8; /* app background */
+  --surface: #ffffff; /* cards, nav, inputs */
+  --surface-2: #fafafa; /* subtle fills, table stripes */
+  --sunken: #f1f1f3; /* wells, active pills, progress tracks */
+  --sidebar: #f4f4f5;
+
+  /* Lines */
+  --line: #ececef; /* default 1px borders */
+  --line-strong: #dcdce0; /* inputs, dividers that must be seen */
+
+  /* Text */
+  --ink: #141414; /* primary text, primary buttons */
+  --ink-2: #3d3b38; /* secondary text */
+  --muted: #6b6966; /* captions, helper text */
+  --faint: #716e69; /* placeholders, least important text */
+
+  /* Brand red (Kalvium) */
+  --brand: #ef3837; /* accents, active tab underline, focus glow */
+  --action: #d32f2e; /* filled red buttons */
+  --action-hover: #b82625;
+  --brand-text: #c42b2a; /* red text on white (AA) */
+  --brand-soft: #fdeeee; /* red tint backgrounds, badges */
+  --brand-line: #f3c9c8; /* border on red tint */
+
+  /* Status */
+  --success-text: #1e7a3c;
+  --success-soft: #e8f5ec;
+  --success-line: #b9e3c8;
+  --warning-text: #8a5a00;
+  --warning-soft: #fff6e0;
+  --status-up: #0ca30c;
+  --status-same: #b9b8b1;
+  --status-down: #d03b3b;
+  --status-first: #3e6fb0;
+  --status-untested: #e4e3dd;
+
+  /* Glass (top nav sits on this) */
+  --glass: #ffffffb8;
+  --glass-strong: #fffffff0;
+  --glass-rim: #fffffff2;
+  --glass-sheen: #ffffff8c;
+  --glass-glint: #ffffffe6;
+  --glass-edge: #ffffff;
+  --glass-edge-dim: #ffffff40;
+
+  /* Shadows */
+  --card-shadow: 0 1px 2px #1414140a;
+  --glass-shadow: 0 1px 2px #11111a0f, 0 8px 28px -6px #11111a1f;
+  --pop-shadow: 0 16px 40px -12px #14141438;
+
+  /* Charts */
+  --chart-grid: #ecebe7;
+  --chart-axis: #d6d3ce;
+  --chart-tick: #8a8782;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --series-other: #a3a29c;
+
+  /* Language colors (cards, chips) */
+  --lang-cpp: #1f6fc0;
+  --lang-java: #dd6a0c;
+  --lang-nodejs: #3d8f37;
+  --lang-python: #d7a300;
+
+  /* Shape */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem; /* buttons, nav pills, inputs (8px) */
+  --radius-xl: 0.75rem; /* cards, hero (12px) */
+
+  /* Component recipes (from computed styles on the live site) */
+  --hero-bg: #09090b; /* near-black hero card, white text, faint dark-red glow on the right */
+  --stat-card-bg: linear-gradient(to top, #fef3f3, #ffffff); /* stat cards fade to red tint at the bottom */
+  --fab-bg: linear-gradient(to right bottom, #ff5a52 0%, #d32f2e 100%); /* floating help button */
+  --button-ring: inset 0 0 0 1px #2c2c30; /* primary dark button inner ring */
+}
+
+/* Dark mode: the site toggles a `.dark` class on <html>. */
+.ds.dark,
+.dark .ds,
+.ds[data-theme="dark"] {
+  --page: #09090b;
+  --sidebar: #09090b;
+  --surface: #111113;
+  --surface-2: #151518;
+  --sunken: #1c1c1f;
+
+  --line: #222226;
+  --line-strong: #2e2e33;
+
+  --ink: #fafafa;
+  --ink-2: #d4d4d8;
+  --muted: #a1a1aa;
+  --faint: #8a8a93;
+
+  --brand: #ef3837;
+  --action: #d32f2e;
+  --action-hover: #e5403f;
+  --brand-text: #ff6b66;
+  --brand-soft: #1f1213;
+  --brand-line: #3d1d1e;
+
+  --success-text: #4cc38a;
+  --success-soft: #15291e;
+  --success-line: #1f4a31;
+  --warning-text: #e8b34a;
+  --warning-soft: #2b2413;
+  --status-up: #0ca30c;
+  --status-same: #5c5b57;
+  --status-down: #d03b3b;
+  --status-first: #4f82c9;
+  --status-untested: #27272a;
+
+  --card-shadow: none;
+  --pop-shadow: 0 16px 40px -12px #000000b3;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --series-other: #6e6d68;
+}
+
+/* Tailwind v4: exposes the tokens as utilities, e.g. bg-page, bg-surface,
+ * text-ink, text-muted, border-line, bg-brand-soft, rounded-xl. `inline` keeps
+ * them live-bound to the variables above, so the .dark overrides just work. */
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-sunken: var(--sunken);
+  --color-sidebar: var(--sidebar);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-brand: var(--brand);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-brand-text: var(--brand-text);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-line: var(--brand-line);
+  --color-success-text: var(--success-text);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-warning-text: var(--warning-text);
+  --color-warning-soft: var(--warning-soft);
+  --color-status-up: var(--status-up);
+  --color-status-same: var(--status-same);
+  --color-status-down: var(--status-down);
+  --color-status-first: var(--status-first);
+  --color-status-untested: var(--status-untested);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-series-6: var(--series-6);
+  --color-series-7: var(--series-7);
+  --color-series-8: var(--series-8);
+
+  --shadow-card: var(--card-shadow);
+  --shadow-pop: var(--pop-shadow);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* Primary button: thin red shimmer travelling around the edge (static for
+ * reduced-motion users). Add the `btn-shimmer` class to a dark button. */
+@property --shimmer-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.ds .btn-shimmer {
+  position: relative;
+}
+
+.ds .btn-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--shimmer-angle),
+    transparent 0%,
+    transparent 55%,
+    #ef3837 72%,
+    #ffffff 82%,
+    #ef3837 92%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: shimmer-spin 4s linear infinite;
+}
+
+@keyframes shimmer-spin {
+  to {
+    --shimmer-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds .btn-shimmer::before {
+    animation: none;
+  }
+}
