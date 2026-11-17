@@ -41,10 +41,17 @@ function Bullets({ title, items }: { title: string; items: string[] }) {
 }
 
 /** The AI's provisional evaluation. The mentor's grade is the final one. */
-export function EvaluationView({ evaluation }: { evaluation: EvaluationData }) {
+export function EvaluationView({
+  evaluation,
+  forStudent = false,
+}: {
+  evaluation: EvaluationData;
+  /** Students never see evidence quotes (they come from the transcript) or internal flags. */
+  forStudent?: boolean;
+}) {
   const categories = Object.keys(EVALUATION_RUBRIC);
   const scores = readCategoryScores(evaluation.scores, categories);
-  const flags = readStringList(evaluation.review_flags);
+  const flags = forStudent ? [] : readStringList(evaluation.review_flags);
 
   return (
     <div className="space-y-6">
@@ -95,7 +102,7 @@ export function EvaluationView({ evaluation }: { evaluation: EvaluationData }) {
                 {entry.feedback && (
                   <p className="mt-2 text-sm leading-6 text-muted">{entry.feedback}</p>
                 )}
-                {entry.evidence.length > 0 && (
+                {!forStudent && entry.evidence.length > 0 && (
                   <ul className="mt-2 space-y-1.5">
                     {entry.evidence.map((quote) => (
                       <li
