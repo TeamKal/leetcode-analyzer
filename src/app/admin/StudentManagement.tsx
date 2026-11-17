@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, Section, tableClasses } from "@/components/ui/Section";
-import { TextField } from "@/components/ui/TextField";
+import { fieldInputClasses, TextField } from "@/components/ui/TextField";
 import { enrollStudent, removeStudent } from "./student-actions";
 
 export type AdminStudent = {
@@ -34,8 +34,30 @@ const removalErrorMessages: Record<string, string> = {
   removal_failed: "Student removal failed. Please try again.",
 };
 
-export function StudentManagement({ students }: { students: AdminStudent[] }) {
+type ActionResult = { ok: true } | { ok: false; error: string };
+
+type StudentManagementProps = {
+  students: AdminStudent[];
+  /** Defaults to the admin actions; the mentor page passes its own. */
+  onEnroll?: (input: {
+    fullName: string;
+    googleEmail: string;
+    leetcodeUsername: string;
+    classId?: string;
+  }) => Promise<ActionResult>;
+  onRemove?: (studentId: string) => Promise<ActionResult>;
+  /** Classes the signed-in user can add students to. Omit for the single main class. */
+  classes?: { id: string; name: string }[];
+};
+
+export function StudentManagement({
+  students,
+  onEnroll = enrollStudent,
+  onRemove = removeStudent,
+  classes,
+}: StudentManagementProps) {
   const router = useRouter();
+  const [classId, setClassId] = useState(classes?.[0]?.id ?? "");
   const [fullName, setFullName] = useState("");
   const [googleEmail, setGoogleEmail] = useState("");
   const [leetcodeUsername, setLeetcodeUsername] = useState("");
@@ -55,7 +77,8 @@ export function StudentManagement({ students }: { students: AdminStudent[] }) {
     setIsEnrolling(true);
 
     try {
-      const result = await enrollStudent({
+      const result = await onEnroll({
+        classId: classes ? classId : undefined,
         fullName,
         googleEmail,
         leetcodeUsername,
@@ -92,7 +115,7 @@ export function StudentManagement({ students }: { students: AdminStudent[] }) {
     setRemovalMessage("");
     setRemovingStudentId(student.id);
     try {
-      const result = await removeStudent(student.id);
+      const result = await onRemove(student.id);
       if (result.ok) {
         setRemovalError(false);
         setRemovalMessage(`${displayName} was removed.`);
@@ -154,6 +177,22 @@ export function StudentManagement({ students }: { students: AdminStudent[] }) {
           onChange={(event) => setLeetcodeUsername(event.target.value)}
           required
         />
+        {classes && classes.length > 1 && (
+          <label className="block min-w-0 text-[13px] font-medium text-ink-2 sm:col-span-2 lg:col-span-4">
+            Class
+            <select
+              value={classId}
+              onChange={(event) => setClassId(event.target.value)}
+              className={`mt-1.5 font-normal sm:max-w-[320px] ${fieldInputClasses}`}
+            >
+              {classes.map((classRow) => (
+                <option key={classRow.id} value={classRow.id}>
+                  {classRow.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <Button type="submit" disabled={busy} className="sm:col-span-2 lg:col-span-1">
           {isEnrolling ? "Enrolling…" : "Enroll student"}
         </Button>
@@ -185,6 +224,9 @@ export function StudentManagement({ students }: { students: AdminStudent[] }) {
                   <th scope="col" className={tableClasses.th}>Student</th>
                   <th scope="col" className={tableClasses.th}>Google email</th>
                   <th scope="col" className={tableClasses.th}>LeetCode</th>
+                  {classes && classes.length > 1 && (
+                    <th scope="col" className={tableClasses.th}>Class</th>
+                  )}
                   <th scope="col" className={tableClasses.th}>Google account</th>
                   <th scope="col" className={tableClasses.th}>
                     <span className="sr-only">Actions</span>
@@ -202,6 +244,11 @@ export function StudentManagement({ students }: { students: AdminStudent[] }) {
                       </td>
                       <td className={tableClasses.td}>{student.google_email}</td>
                       <td className={tableClasses.td}>{student.leetcode_username}</td>
+                      {classes && classes.length > 1 && (
+                        <td className={tableClasses.td}>
+                          {classes.find((c) => c.id === student.class_id)?.name ?? "–"}
+                        </td>
+                      )}
                       <td className={tableClasses.td}>
                         <Badge tone={student.user_id ? "success" : "neutral"}>
                           {student.user_id ? "Linked" : "Not linked"}
