@@ -1,21 +1,22 @@
 import { signOut } from "@/app/actions";
+import { Button } from "@/components/ui/Button";
+import { EntryCard } from "@/components/ui/EntryCard";
 
 export default function AccessDeniedPage() {
   return (
-    <main className="login-page">
-      <section className="login-panel" aria-labelledby="access-denied-title">
-        <p className="eyebrow">ACCOUNT ACCESS</p>
-        <h1 id="access-denied-title">Access could not be verified</h1>
-        <p className="login-copy">
-          Your account does not have an active application role, or we could not
-          verify it. Contact an administrator for help.
-        </p>
-        <form action={signOut} className="onboarding-actions">
-          <button className="button button-secondary" type="submit">
+    <EntryCard
+      id="access-denied-title"
+      title="Access could not be verified"
+      actions={
+        <form action={signOut}>
+          <Button type="submit" variant="secondary">
             Sign out
-          </button>
+          </Button>
         </form>
-      </section>
-    </main>
+      }
+    >
+      Your account does not have an active application role, or we could not
+      verify it. Contact an administrator for help.
+    </EntryCard>
   );
 }

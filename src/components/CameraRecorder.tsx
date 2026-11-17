@@ -1,23 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Alert } from "@/components/ui/Alert";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
+import { UploadStatus, type UploadState } from "@/components/submit/UploadStatus";
 import { useRecording } from "../hooks/useRecording";
-import { useTranscription } from "../hooks/useTranscription";
-import {
-  TranscriptionPanel,
-  type SubmissionControls,
-} from "./TranscriptionPanel";
 
 type Props = {
   recording: ReturnType<typeof useRecording>;
-  transcription: ReturnType<typeof useTranscription>;
-  showTranscript: boolean;
-  cameraR2Upload: {
-    status: "waiting" | "uploading" | "success" | "error";
-    objectKey: string;
-    message: string;
-  };
-  submissionControls: SubmissionControls;
+  cameraUpload: UploadState;
   onStartRecording: () => void;
   onRecordingComplete: (audioBlob: Blob, videoBlob?: Blob) => void;
   onRetake: () => void;
@@ -37,12 +29,27 @@ function getRecordingExtension(mimeType: string) {
   return "media";
 }
 
+function CameraGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-7 text-zinc-500"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="6" width="13" height="12" rx="2.5" />
+      <path d="m16 10.5 5-3v9l-5-3" />
+    </svg>
+  );
+}
+
 export function CameraRecorder({
   recording,
-  transcription,
-  showTranscript,
-  cameraR2Upload,
-  submissionControls,
+  cameraUpload,
   onStartRecording,
   onRecordingComplete,
   onRetake,
@@ -68,33 +75,26 @@ export function CameraRecorder({
     }
   }
 
-  return (
-    <section className="camera-section" aria-labelledby="camera-heading">
-      <div className="camera-section-heading">
-        <div>
-          <p className="eyebrow">CAMERA + MICROPHONE</p>
-          <h2 id="camera-heading">Record a new video</h2>
-          <p className="camera-description">
-            Camera video and microphone audio are recorded together. The final
-            original video is uploaded to private storage after the take ends
-            and is transcribed from there.
-          </p>
-        </div>
-        {recording.phase === "recording" && (
-          <span className="recording-indicator">
-            <span />
-            Recording
-          </span>
-        )}
-      </div>
+  const live =
+    recording.stream &&
+    (recording.phase === "ready" ||
+      recording.phase === "recording" ||
+      recording.phase === "stopping");
+  const recorded = recording.phase === "recorded" && recording.videoUrl;
+  const showUpload =
+    recording.phase === "ready" ||
+    recording.phase === "recording" ||
+    recording.phase === "stopping" ||
+    recording.phase === "recorded";
 
-      {recording.stream &&
-        (recording.phase === "ready" ||
-          recording.phase === "recording" ||
-          recording.phase === "stopping") && (
+  return (
+    <div className="space-y-4">
+      {/* The stage: a dark frame holding the camera, the recording, or a prompt. */}
+      <div className="relative aspect-video overflow-hidden rounded-xl bg-[#09090b]">
+        {live && (
           <video
             ref={previewRef}
-            className="camera-preview"
+            className="size-full object-cover"
             autoPlay
             muted
             playsInline
@@ -102,86 +102,66 @@ export function CameraRecorder({
           />
         )}
 
-      {recording.phase === "recorded" && recording.videoUrl && (
-        <video
-          className="camera-preview"
-          controls
-          playsInline
-          preload="metadata"
-          src={recording.videoUrl}
-          aria-label="Recorded video preview with camera and microphone audio"
-        />
-      )}
-
-      {recording.phase === "recorded" && recording.audioUrl && (
-        <div className="recorded-audio">
-          <p className="result-title">Microphone audio only</p>
-          <audio
-            className="audio-player"
+        {recorded && (
+          <video
+            className="size-full object-contain"
             controls
+            playsInline
             preload="metadata"
-            src={recording.audioUrl}
-            aria-label="Preview microphone-only recording"
+            src={recording.videoUrl ?? undefined}
+            aria-label="Your recording"
           />
-        </div>
-      )}
+        )}
 
-      {(recording.phase === "ready" ||
-        recording.phase === "recording" ||
-        recording.phase === "stopping" ||
-        recording.phase === "recorded") && (
-        <div
-          className={`transcription-error ${cameraR2Upload.status === "success" ? "success-message" : ""}`}
-          role={cameraR2Upload.status === "error" ? "alert" : "status"}
-          aria-live="polite"
-        >
-          <strong>Private video upload:</strong> {cameraR2Upload.message}
-          {cameraR2Upload.objectKey && (
-            <>
-              <br />
-              Verified object key: {cameraR2Upload.objectKey}
-            </>
-          )}
-        </div>
-      )}
+        {!live && !recorded && (
+          <div className="absolute inset-0 grid place-items-center px-6 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <CameraGlyph />
+              <p className="text-sm text-zinc-400">
+                Turn on your camera and microphone to record your explanation.
+              </p>
+            </div>
+          </div>
+        )}
 
-      {recording.phase === "recording" && (
-        <p className="recording-timer" role="timer" aria-live="off">
-          {formatRecordingTime(recording.elapsedSeconds)}
-        </p>
-      )}
+        {recording.phase === "recording" && (
+          <div
+            className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white backdrop-blur"
+            role="timer"
+            aria-live="off"
+          >
+            <span
+              aria-hidden="true"
+              className="size-2 animate-pulse rounded-full bg-brand motion-reduce:animate-none"
+            />
+            <span className="tabular-nums">
+              {formatRecordingTime(recording.elapsedSeconds)}
+            </span>
+          </div>
+        )}
+      </div>
 
-      {recording.error && (
-        <div className="transcription-error" role="alert">
-          {recording.error}
-        </div>
-      )}
-
-      <div className="camera-actions">
+      <div className="flex flex-wrap items-center gap-2">
         {(recording.phase === "idle" || recording.phase === "error") &&
           !recording.stream && (
-            <button
-              className="button button-primary"
-              type="button"
+            <Button
               disabled={disabled}
               onClick={() => void recording.requestAccess()}
             >
               Enable camera and microphone
-            </button>
+            </Button>
           )}
 
         {recording.phase === "requesting" && (
-          <button className="button button-primary" type="button" disabled>
-            <span className="spinner" aria-hidden="true" />
-            Requesting permissions…
-          </button>
+          <Button disabled>
+            <Spinner />
+            Waiting for permission…
+          </Button>
         )}
 
         {recording.phase === "ready" && (
           <>
-            <button
-              className="button button-primary"
-              type="button"
+            <Button
               disabled={disabled}
               onClick={() => {
                 onStartRecording();
@@ -189,98 +169,75 @@ export function CameraRecorder({
               }}
             >
               Start recording
-            </button>
-            <button
-              className="text-button"
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
               onClick={() => void recording.endSession()}
             >
-              End camera session
-            </button>
+              Turn camera off
+            </Button>
           </>
         )}
 
         {recording.phase === "recording" && (
-          <button
-            className="button button-danger"
-            type="button"
+          <Button
+            variant="danger"
             disabled={disabled}
             onClick={() => void stopRecording()}
           >
             Stop recording
-          </button>
+          </Button>
         )}
 
         {recording.phase === "stopping" && (
-          <button className="button button-primary" type="button" disabled>
-            Saving both recordings…
-          </button>
+          <Button disabled>
+            <Spinner />
+            Saving your recording…
+          </Button>
         )}
 
         {recording.phase === "recorded" && (
           <>
-            {recording.videoUrl && recording.videoBlob && (
-              <a
-                className="button button-secondary"
-                href={recording.videoUrl}
-                download={`videomind-recording.${getRecordingExtension(recording.videoBlob.type)}`}
-              >
-                Download video
-              </a>
-            )}
-            {recording.audioUrl && recording.audioBlob && (
-              <a
-                className="button button-secondary"
-                href={recording.audioUrl}
-                download={`videomind-audio.${getRecordingExtension(recording.audioBlob.type)}`}
-              >
-                Download audio
-              </a>
-            )}
-            <button
-              className="text-button"
-              type="button"
+            <Button
+              variant="secondary"
               disabled={disabled}
               onClick={() => {
                 onRetake();
                 recording.retake();
               }}
             >
-              Retake
-            </button>
+              Record again
+            </Button>
+            {recording.videoUrl && recording.videoBlob && (
+              <a
+                className={buttonClasses("ghost")}
+                href={recording.videoUrl}
+                download={`recording.${getRecordingExtension(recording.videoBlob.type)}`}
+              >
+                Download video
+              </a>
+            )}
             {recording.stream && (
-              <button
-                className="text-button"
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => void recording.endSession()}
               >
-                End camera session
-              </button>
+                Turn camera off
+              </Button>
             )}
           </>
         )}
 
         {recording.phase === "error" && recording.stream && (
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => void recording.endSession()}
-          >
-            End camera session
-          </button>
+          <Button variant="ghost" onClick={() => void recording.endSession()}>
+            Turn camera off
+          </Button>
         )}
       </div>
 
-      {showTranscript && recording.audioBlob && (
-        <TranscriptionPanel
-          transcription={transcription}
-          videoObjectKey={
-            cameraR2Upload.status === "success" ? cameraR2Upload.objectKey : ""
-          }
-          fileName="videomind-recording"
-          {...submissionControls}
-        />
-      )}
-    </section>
+      {recording.error && <Alert>{recording.error}</Alert>}
+
+      {showUpload && <UploadStatus upload={cameraUpload} />}
+    </div>
   );
 }

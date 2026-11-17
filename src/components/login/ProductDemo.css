@@ -1,0 +1,307 @@
+/*
+ * Login-page product demo: a miniature screen recording. A script moves a
+ * cursor over the UI and the UI reacts through the data attributes below, so
+ * hover, pressed and selected states look exactly like real interaction.
+ */
+
+.pd {
+  --pd-surface: #111113;
+  --pd-raised: #151518;
+  --pd-sunken: #1c1c1f;
+  --pd-line: #222226;
+  --pd-line-strong: #2e2e33;
+  --pd-ink: #fafafa;
+  --pd-ink-2: #d4d4d8;
+  --pd-muted: #a1a1aa;
+  --pd-brand: #ef3837;
+  --pd-brand-text: #ff6b66;
+  --pd-success: #4cc38a;
+  --pd-success-soft: #15291e;
+  --pd-warning: #e8b34a;
+}
+
+.pd-stage {
+  position: relative;
+}
+
+/* Depth: the demo sits in a thin frame and lifts off the dark panel with a
+   deep shadow and a faint brand-red glow underneath. (Flat: no 3D tilt.) */
+
+.pd-frame {
+  padding: 6px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.02) 55%,
+    rgba(239, 56, 55, 0.07)
+  );
+  box-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.06) inset,
+    0 50px 90px -30px rgba(0, 0, 0, 0.95),
+    0 22px 40px -22px rgba(0, 0, 0, 0.9),
+    0 0 70px -30px rgba(239, 56, 55, 0.35);
+}
+
+/* Cursor ----------------------------------------------------------------- */
+
+.pd-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.pd-cursor svg {
+  display: block;
+  width: 20px;
+  height: auto;
+  transform-origin: 0 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+}
+
+.pd-ripple {
+  position: absolute;
+  z-index: 29;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 9999px;
+  border: 2px solid var(--pd-brand);
+  pointer-events: none;
+  animation: pd-ripple 0.55s ease-out forwards;
+}
+
+@keyframes pd-ripple {
+  from {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* Controls: hover / pressed / selected, driven by the script ---------------- */
+
+.pd-ctl {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.14s ease,
+    opacity 0.2s ease;
+}
+
+.pd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pd-btn-primary {
+  background: var(--pd-ink);
+  color: #09090b;
+}
+
+.pd-btn-primary[data-hover="true"] {
+  background: #e4e4e7;
+}
+
+.pd-btn-secondary {
+  background: transparent;
+  color: var(--pd-ink);
+  border: 1px solid var(--pd-line-strong);
+}
+
+.pd-btn-secondary[data-hover="true"] {
+  background: var(--pd-sunken);
+  border-color: #3f3f46;
+}
+
+.pd-btn[data-pressed="true"] {
+  transform: scale(0.96);
+}
+
+.pd-btn[data-busy="true"] {
+  opacity: 0.7;
+}
+
+.pd-field {
+  border: 1px solid var(--pd-line-strong);
+  background: var(--pd-sunken);
+  border-radius: 8px;
+}
+
+.pd-field[data-focus="true"] {
+  border-color: var(--pd-brand);
+  box-shadow: 0 0 0 3px rgba(239, 56, 55, 0.18);
+}
+
+.pd-drop {
+  border: 1px dashed #3f3f46;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.pd-drop[data-hover="true"] {
+  border-color: var(--pd-brand);
+  background: rgba(239, 56, 55, 0.06);
+}
+
+.pd-drop[data-pressed="true"] {
+  transform: scale(0.99);
+}
+
+.pd-row {
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.pd-row[data-hover="true"] {
+  background: var(--pd-raised);
+}
+
+.pd-row[data-selected="true"] {
+  background: var(--pd-sunken);
+  border-color: var(--pd-line-strong);
+}
+
+.pd-rows[data-has-selection="true"] .pd-row[data-selected="false"] {
+  opacity: 0.55;
+}
+
+.pd-row-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.pd-row[data-selected="true"] .pd-row-detail {
+  grid-template-rows: 1fr;
+}
+
+.pd-row-detail > div {
+  overflow: hidden;
+}
+
+.pd-chip[data-hover="true"] {
+  border-color: #3f3f46;
+}
+
+.pd-word-fix {
+  border-radius: 4px;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.pd-word-fix[data-hover="true"] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pd-word-fix[data-fixing="true"] {
+  background: rgba(239, 56, 55, 0.22);
+  color: var(--pd-brand-text);
+}
+
+.pd-word-fix[data-fixed="true"] {
+  background: rgba(76, 195, 138, 0.18);
+  color: var(--pd-success);
+}
+
+/* Progress bars: they animate because their width changes --------------------- */
+
+.pd-meter {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--pd-sunken);
+}
+
+.pd-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pd-ink);
+  transition: width 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.pd-meter[data-emphasis="true"] > span {
+  background: var(--pd-brand);
+}
+
+/* Entrances ------------------------------------------------------------------ */
+
+@keyframes pd-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes pd-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pd-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.pd-in {
+  animation: pd-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.pd-fade {
+  animation: pd-fade 0.3s ease-out both;
+}
+
+.pd-caret {
+  display: inline-block;
+  width: 1px;
+  height: 1.1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--pd-ink);
+  animation: pd-caret 1s step-end infinite;
+}
+
+.pd-window[data-fade="true"] .pd-body {
+  opacity: 0;
+}
+
+.pd-body {
+  transition: opacity 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pd-in,
+  .pd-fade,
+  .pd-caret,
+  .pd-ripple {
+    animation: none;
+  }
+
+  .pd-ctl,
+  .pd-meter > span,
+  .pd-row-detail,
+  .pd-body {
+    transition: none;
+  }
+}

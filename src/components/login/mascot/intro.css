@@ -1,0 +1,66 @@
+/*
+ * Welcome intro. The mascot's wrapper stays in the page flow the whole time (so
+ * nothing shifts); the intro only moves it with a transform. Until the script
+ * decides whether to play, the wrapper is hidden so it never flashes in its
+ * resting spot first. A fail-safe reveals it if scripts never run.
+ */
+
+[data-intro="pending"] {
+  opacity: 0;
+  animation: pm-intro-failsafe 0.01s 2.5s forwards;
+}
+
+@keyframes pm-intro-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+
+[data-intro="playing"] {
+  position: relative;
+  z-index: 60;
+}
+
+/* Exploration flights: above the page content, never in the way of clicks. */
+[data-intro="roam"] {
+  position: relative;
+  z-index: 40;
+  pointer-events: none;
+}
+
+/* Reduced motion: no black cover, no intro, mascot visible straight away. */
+@media (prefers-reduced-motion: reduce) {
+  .pm-cover {
+    display: none;
+  }
+
+  [data-intro="pending"] {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+/* Takeoff smoke and landing dust ---------------------------------------- */
+
+.pm-puff {
+  position: fixed;
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+  border-radius: 9999px;
+  background: #d4d4dc;
+  opacity: 0;
+  animation: pm-puff 0.75s cubic-bezier(0.2, 0.6, 0.3, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes pm-puff {
+  0% {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(0.35);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(1.5);
+  }
+}

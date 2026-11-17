@@ -1,4 +1,6 @@
 import { signOut } from "@/app/actions";
+import { Button } from "@/components/ui/Button";
+import { EntryCard } from "@/components/ui/EntryCard";
 
 type EnrollmentRequiredPageProps = {
   searchParams: Promise<{ issue?: string }>;
@@ -14,20 +16,19 @@ export default async function EnrollmentRequiredPage({
       : "No matching enrollment found";
 
   return (
-    <main className="login-page">
-      <section className="login-panel" aria-labelledby="enrollment-title">
-        <p className="eyebrow">STUDENT ACCESS</p>
-        <h1 id="enrollment-title">{heading}</h1>
-        <p className="login-copy">
-          Please contact your mentor and confirm that you signed in with the
-          Google account used for your student enrollment.
-        </p>
-        <form action={signOut} className="onboarding-actions">
-          <button className="button button-secondary" type="submit">
+    <EntryCard
+      id="enrollment-title"
+      title={heading}
+      actions={
+        <form action={signOut}>
+          <Button type="submit" variant="secondary">
             Sign out
-          </button>
+          </Button>
         </form>
-      </section>
-    </main>
+      }
+    >
+      Please contact your mentor and confirm that you signed in with the Google
+      account used for your student enrollment.
+    </EntryCard>
   );
 }
