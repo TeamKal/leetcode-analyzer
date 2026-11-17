@@ -75,6 +75,41 @@ const MAX_STALE_JOB_MINUTES = 15;
 const SANITIZED_PROCESSING_ERROR = "Evaluation processing failed.";
 const SANITIZED_INVALID_JOB_ERROR = "Claimed evaluation job was invalid.";
 
+/**
+ * Turns a failure into a short, fixed, human-readable reason for the mentor.
+ * Only the error's status code and our own fixed messages are inspected; no
+ * provider or database text is ever copied into the result.
+ */
+export function classifyEvaluationFailure(error: unknown): string {
+  const detail = error as { status?: unknown; name?: unknown; message?: unknown };
+  const status = typeof detail?.status === "number" ? detail.status : null;
+  const name = typeof detail?.name === "string" ? detail.name : "";
+  const message = typeof detail?.message === "string" ? detail.message : "";
+
+  if (status === 429) {
+    return "The AI provider was busy (rate limit reached). Try again in a few minutes.";
+  }
+  if (status === 401 || status === 403) {
+    return "The AI provider rejected our credentials. An administrator needs to check the API key.";
+  }
+  if (status !== null && status >= 500) {
+    return "The AI provider had a temporary problem. Try again in a few minutes.";
+  }
+  if (/timeout/i.test(name) || /timed? ?out/i.test(message)) {
+    return "The AI took too long to respond. Try again.";
+  }
+  if (message === "GROQ_API_KEY is not configured.") {
+    return "The AI provider is not set up. An administrator needs to configure it.";
+  }
+  if (/^Groq returned /.test(message) || /^Invalid /.test(message)) {
+    return "The AI answered in an unexpected format. Trying again usually works.";
+  }
+  if (/^(Problem|Reference) lookup failed\./.test(message)) {
+    return "The problem details could not be loaded. Try again.";
+  }
+  return SANITIZED_PROCESSING_ERROR;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -216,12 +251,12 @@ export async function processOneEvaluationJob(
       };
     }
     modelName = generated.modelName;
-  } catch {
+  } catch (error) {
     const recorded = await recordFailure(
       dependencies,
       claim.job.jobId,
       workerId,
-      SANITIZED_PROCESSING_ERROR,
+      classifyEvaluationFailure(error),
     );
     return recorded
       ? { status: "failed" }

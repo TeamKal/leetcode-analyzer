@@ -135,3 +135,18 @@ export function describeGradeError(message: string | undefined) {
   const match = GRADE_ERRORS.find(([pattern]) => pattern.test(message ?? ""));
   return match ? match[1] : "The grade could not be saved. Please try again.";
 }
+
+const GENERIC_FAILURES = new Set([
+  "",
+  "Evaluation processing failed.",
+  "Unknown evaluation error",
+]);
+
+/** The reason shown to a mentor for a failed evaluation (the job's stored, sanitized reason). */
+export function describeFailureReason(lastError: unknown): string {
+  const text = typeof lastError === "string" ? lastError.trim() : "";
+  if (GENERIC_FAILURES.has(text)) {
+    return "The evaluation failed for a reason we could not identify. Trying again often fixes it.";
+  }
+  return text;
+}

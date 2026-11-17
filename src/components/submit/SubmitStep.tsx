@@ -1,10 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { StepCard } from "@/components/ui/StepCard";
-import type { SubmissionFeedback } from "../TranscriptionPanel";
+
+export type SubmissionFeedback = {
+  status: "idle" | "pending" | "success" | "error";
+  message: string;
+};
 
 export type ChecklistItem = { label: string; done: boolean };
 
@@ -42,7 +47,7 @@ function Check({ done }: { done: boolean }) {
   );
 }
 
-/** Step 4: a last look, then submit. After submitting it becomes a confirmation. */
+/** Step 3: a last look, then submit. After submitting it becomes a confirmation. */
 export function SubmitStep({
   items,
   canSubmit,
@@ -85,11 +90,14 @@ export function SubmitStep({
               aria-live="polite"
               className="mt-1.5 max-w-[46ch] text-sm leading-6 text-ink-2"
             >
-              Nice work. We&apos;re reading your explanation now and will score
-              it. Your AI score is a first look, and your mentor gives the final
-              grade.
+              Nice work. We&apos;re scoring your explanation now. Your AI score
+              is a first look, and your mentor gives the final grade. You can
+              follow it on your submissions page.
             </p>
-            <div className="mt-5">
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link href="/submissions" className={buttonClasses("primary")}>
+                View my submissions
+              </Link>
               <Button variant="secondary" onClick={onAnother}>
                 Submit another solution
               </Button>
@@ -104,7 +112,7 @@ export function SubmitStep({
 
   return (
     <StepCard
-      number={4}
+      number={3}
       title="Review and submit"
       description="Make sure everything below is ready, then send it in."
       state={canSubmit ? "active" : "idle"}
@@ -147,8 +155,9 @@ export function SubmitStep({
           )}
         </Button>
         <p className="mt-2 text-center text-xs text-faint">
-          Videos are stored privately. Audio goes to Deepgram only to be
-          transcribed.
+          {pending
+            ? "Hang on, we are turning your recording into text. This can take up to a minute."
+            : "Your video is stored privately. Its audio is sent to Deepgram only to be transcribed for your mentor."}
         </p>
       </div>
     </StepCard>

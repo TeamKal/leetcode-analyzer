@@ -266,3 +266,24 @@ test("does not report success when the completion RPC returns false", async () =
   assert.deepEqual(result, { status: "completion_uncertain" });
   assert.equal(calls.failed, null);
 });
+
+test("classifies failures into safe, fixed reasons", async () => {
+  const { classifyEvaluationFailure } = await import(
+    "../src/lib/evaluation/processor.ts"
+  );
+
+  assert.match(classifyEvaluationFailure({ status: 429, message: "secret" }), /rate limit/);
+  assert.match(classifyEvaluationFailure({ status: 401 }), /credentials/);
+  assert.match(classifyEvaluationFailure({ status: 503 }), /temporary problem/);
+  assert.match(classifyEvaluationFailure({ name: "APIConnectionTimeoutError" }), /too long/);
+  assert.match(classifyEvaluationFailure(new Error("GROQ_API_KEY is not configured.")), /not set up/);
+  assert.match(classifyEvaluationFailure(new Error("Groq returned malformed JSON.")), /unexpected format/);
+  assert.match(classifyEvaluationFailure(new Error("Invalid approach score.")), /unexpected format/);
+  assert.match(classifyEvaluationFailure(new Error("Problem lookup failed.")), /problem details/);
+
+  // Unknown errors never leak their text.
+  const unknown = classifyEvaluationFailure(new Error("provider error containing sensitive details"));
+  assert.equal(unknown, "Evaluation processing failed.");
+  assert.doesNotMatch(classifyEvaluationFailure({ status: 429, message: "secret" }), /secret/);
+  assert.equal(classifyEvaluationFailure(null), "Evaluation processing failed.");
+});

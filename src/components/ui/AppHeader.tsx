@@ -9,10 +9,17 @@ type AppHeaderProps = {
   wide?: boolean;
   /** Shown instead of the privacy chip, e.g. "Administrator". */
   roleLabel?: string;
+  /** Page links shown before the sign-out button. */
+  links?: { href: string; label: string }[];
 };
 
 /** The top bar shared by signed-in pages. */
-export function AppHeader({ signOutAction, wide = false, roleLabel }: AppHeaderProps) {
+export function AppHeader({
+  signOutAction,
+  wide = false,
+  roleLabel,
+  links,
+}: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-[var(--glass-strong)] backdrop-blur">
       <div
@@ -29,6 +36,15 @@ export function AppHeader({ signOutAction, wide = false, roleLabel }: AppHeaderP
         </Link>
 
         <div className="flex items-center gap-2">
+          {links?.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="h-9 rounded-lg px-3 text-[13px] font-semibold leading-9 text-ink-2 transition-colors hover:bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              {link.label}
+            </Link>
+          ))}
           {roleLabel ? (
             <Badge tone="neutral">{roleLabel}</Badge>
           ) : (

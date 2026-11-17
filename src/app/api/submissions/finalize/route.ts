@@ -6,6 +6,11 @@ import { MAX_SUBMISSION_TRANSCRIPT_LENGTH } from "@/lib/submissions/constants";
 import { createAuthAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentStudentAccess } from "@/lib/supabase/student";
+import { transcribeStudentVideo } from "@/lib/transcription/transcribeStudentVideo";
+
+export const runtime = "nodejs";
+// Transcription happens inside this request, so allow the provider time.
+export const maxDuration = 60;
 
 function errorResponse(error: string, message: string, status: number) {
   return NextResponse.json({ error, message }, { status });
@@ -234,17 +239,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const { leetcodeSubmissionUrl, videoObjectKey, transcript } = body as {
+  // The browser never sends a transcript: the server makes it from the video.
+  const { leetcodeSubmissionUrl, videoObjectKey } = body as {
     leetcodeSubmissionUrl?: unknown;
     videoObjectKey?: unknown;
-    transcript?: unknown;
   };
   if (
     typeof leetcodeSubmissionUrl !== "string" ||
     leetcodeSubmissionUrl.length > 2048 ||
     typeof videoObjectKey !== "string" ||
-    videoObjectKey.length > 200 ||
-    typeof transcript !== "string"
+    videoObjectKey.length > 200
   ) {
     return errorResponse(
       "invalid_input",
@@ -258,19 +262,6 @@ export async function POST(request: Request) {
     return errorResponse(
       "invalid_submission_url",
       "Enter a valid HTTPS LeetCode problem or submission URL.",
-      400,
-    );
-  }
-
-  const normalizedTranscript = transcript.trim();
-  if (
-    !normalizedTranscript ||
-    transcript.length > MAX_SUBMISSION_TRANSCRIPT_LENGTH ||
-    normalizedTranscript.length > MAX_SUBMISSION_TRANSCRIPT_LENGTH
-  ) {
-    return errorResponse(
-      "invalid_transcript",
-      `Transcript must contain 1 to ${MAX_SUBMISSION_TRANSCRIPT_LENGTH.toLocaleString()} characters.`,
       400,
     );
   }
@@ -326,12 +317,60 @@ export async function POST(request: Request) {
     }
 
     const admin = createAuthAdminClient();
+
+    // A retry of the same submission reuses its stored transcript, so it is
+    // not transcribed (or charged) twice and cannot differ from the first try.
+    const { data: existing, error: existingError } = await admin
+      .from("submissions")
+      .select("leetcode_submission_url,video_object_key,transcript")
+      .eq("student_id", studentAccess.studentId)
+      .eq("problem_id", problemId)
+      .maybeSingle();
+    if (existingError) {
+      return errorResponse(
+        "submission_unavailable",
+        "The submission service is temporarily unavailable. Try again.",
+        503,
+      );
+    }
+    if (
+      existing &&
+      (existing.leetcode_submission_url !== parsedUrl.href ||
+        existing.video_object_key !== videoObjectKey)
+    ) {
+      return errorResponse(
+        "submission_already_exists",
+        "A submission for this problem already exists with different details. The existing submission was not changed.",
+        409,
+      );
+    }
+
+    let transcript: string;
+    if (existing && typeof existing.transcript === "string") {
+      transcript = existing.transcript;
+    } else {
+      const transcription = await transcribeStudentVideo(
+        studentAccess.studentId,
+        videoObjectKey,
+      );
+      if (!transcription.ok) {
+        return errorResponse(
+          transcription.error,
+          transcription.message,
+          transcription.status,
+        );
+      }
+      transcript = transcription.transcript
+        .trim()
+        .slice(0, MAX_SUBMISSION_TRANSCRIPT_LENGTH);
+    }
+
     const { error } = await admin.rpc("finalize_submission", {
       p_student_id: studentAccess.studentId,
       p_problem_id: problemId,
       p_leetcode_submission_url: parsedUrl.href,
       p_video_object_key: videoObjectKey,
-      p_transcript: normalizedTranscript,
+      p_transcript: transcript,
     });
 
     if (error) {

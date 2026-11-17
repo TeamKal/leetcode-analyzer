@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  describeFailureReason,
   describeGradeError,
   describeReviewFlag,
   firstOf,
@@ -85,4 +86,14 @@ test("error and flag messages are friendly", () => {
   assert.match(describeGradeError("boom"), /could not be saved/);
   assert.equal(describeReviewFlag("wrong_problem"), "May be about a different problem");
   assert.equal(describeReviewFlag("some_new_flag"), "some new flag");
+});
+
+test("describeFailureReason shows specific reasons and softens generic ones", () => {
+  assert.equal(
+    describeFailureReason("The AI provider was busy (rate limit reached). Try again in a few minutes."),
+    "The AI provider was busy (rate limit reached). Try again in a few minutes.",
+  );
+  assert.match(describeFailureReason("Evaluation processing failed."), /could not identify/);
+  assert.match(describeFailureReason(null), /could not identify/);
+  assert.match(describeFailureReason("  "), /could not identify/);
 });
