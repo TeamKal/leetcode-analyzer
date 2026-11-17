@@ -92,6 +92,12 @@ export function classifyEvaluationFailure(error: unknown): string {
   if (status === 401 || status === 403) {
     return "The AI provider rejected our credentials. An administrator needs to check the API key.";
   }
+  if (status === 413) {
+    return "The explanation was too long for the AI to process.";
+  }
+  if (status === 400 || status === 404) {
+    return "The AI provider rejected the request. An administrator should check the AI model settings.";
+  }
   if (status !== null && status >= 500) {
     return "The AI provider had a temporary problem. Try again in a few minutes.";
   }
