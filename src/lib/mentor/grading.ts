@@ -73,6 +73,7 @@ export const REVIEW_FLAG_LABELS: Record<string, string> = {
   reference_unavailable: "No reference answer available",
   reference_low_confidence: "Reference answer is low confidence",
   unsupported_evidence: "Some quoted evidence could not be verified",
+  score_adjusted: "A score was above its limit and was capped",
 };
 
 export function describeReviewFlag(flag: string) {

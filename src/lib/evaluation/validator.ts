@@ -24,6 +24,7 @@ export const BACKEND_REVIEW_FLAGS = [
   "reference_unavailable",
   "reference_low_confidence",
   "unsupported_evidence",
+  "score_adjusted",
 ] as const;
 
 export type ReviewFlag =
@@ -60,12 +61,15 @@ const MAX_EVIDENCE_ITEMS = 3;
 const MAX_EVIDENCE_CHARS = 300;
 const MIN_TRANSCRIPT_WORDS = 25;
 
-function categorySchema(max: number) {
+function categorySchema() {
   return {
     type: "object",
     additionalProperties: false,
     properties: {
-      score: { type: "number", minimum: 0, maximum: max },
+      // No maximum here on purpose: the provider rejects the whole answer when a
+      // strict schema is violated, and models sometimes exceed a small maximum.
+      // The validator caps each score at its rubric maximum instead.
+      score: { type: "number", minimum: 0 },
       feedback: { type: "string", minLength: 1 },
       // Length limits are enforced by the validator, not the schema: a strict
       // schema violation fails the whole request, while the validator can just
@@ -84,12 +88,12 @@ export const EVALUATION_RESPONSE_SCHEMA = {
       type: "object",
       additionalProperties: false,
       properties: {
-        problem_understanding: categorySchema(2),
-        approach: categorySchema(2),
-        reasoning: categorySchema(2),
-        edge_cases: categorySchema(1),
-        complexity: categorySchema(1),
-        communication: categorySchema(2),
+        problem_understanding: categorySchema(),
+        approach: categorySchema(),
+        reasoning: categorySchema(),
+        edge_cases: categorySchema(),
+        complexity: categorySchema(),
+        communication: categorySchema(),
       },
       required: CATEGORIES,
     },
@@ -177,21 +181,24 @@ export function validateEvaluationResponse(
   const scores = {} as Record<EvaluationCategory, EvaluationScore>;
   let overallScore = 0;
   let droppedEvidence = 0;
+  let adjustedScores = false;
   for (const category of CATEGORIES) {
     const categoryValue = value.scores[category];
     if (!isRecord(categoryValue) || !hasExactKeys(categoryValue, SCORE_KEYS)) {
       throw new Error(`Invalid ${category} evaluation.`);
     }
 
-    const score = categoryValue.score;
+    const rawScore = categoryValue.score;
     if (
-      typeof score !== "number" ||
-      !Number.isFinite(score) ||
-      score < 0 ||
-      score > EVALUATION_RUBRIC[category]
+      typeof rawScore !== "number" ||
+      !Number.isFinite(rawScore) ||
+      rawScore < 0
     ) {
       throw new Error(`Invalid ${category} score.`);
     }
+    // A score above the rubric maximum is capped, and the mentor is told.
+    const score = Math.min(rawScore, EVALUATION_RUBRIC[category]);
+    if (score !== rawScore) adjustedScores = true;
     if (!nonEmptyString(categoryValue.feedback)) {
       throw new Error(`Invalid ${category} feedback.`);
     }
@@ -229,6 +236,7 @@ export function validateEvaluationResponse(
   }
   const flags = new Set<ReviewFlag>(rawFlags as ReviewFlag[]);
   if (droppedEvidence > 0) flags.add("unsupported_evidence");
+  if (adjustedScores) flags.add("score_adjusted");
   if (transcript.trim().split(/\s+/).filter(Boolean).length < MIN_TRANSCRIPT_WORDS) {
     flags.add("transcript_too_short");
   }

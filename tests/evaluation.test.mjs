@@ -102,10 +102,20 @@ test("rejects non-finite scores", () => {
   }
 });
 
-test("rejects scores above a category maximum", () => {
+test("caps scores above a category maximum and flags them", () => {
   const value = validEvaluation();
-  value.scores.complexity.score = 1.01;
-  assert.throws(() => validateEvaluationResponse(value, TRANSCRIPT));
+  value.scores.complexity.score = 2;
+  const result = validateEvaluationResponse(value, TRANSCRIPT);
+
+  assert.equal(result.scores.complexity.score, 1);
+  assert.ok(result.reviewFlags.includes("score_adjusted"));
+  // The backend total uses the capped score, never the model's number.
+  assert.equal(result.overallScore, 1.5 + 1.5 + 1.5 + 0.5 + 1 + 1.5);
+});
+
+test("does not flag scores within their maximum", () => {
+  const result = validateEvaluationResponse(validEvaluation(), TRANSCRIPT);
+  assert.ok(!result.reviewFlags.includes("score_adjusted"));
 });
 
 test("rejects malformed strengths and improvements", () => {
@@ -275,6 +285,8 @@ test("classifies failures into safe, fixed reasons", async () => {
   assert.match(classifyEvaluationFailure({ status: 429, message: "secret" }), /rate limit/);
   assert.match(classifyEvaluationFailure({ status: 401 }), /credentials/);
   assert.match(classifyEvaluationFailure({ status: 503 }), /temporary problem/);
+  assert.match(classifyEvaluationFailure({ status: 400 }), /rejected the request/);
+  assert.match(classifyEvaluationFailure({ status: 413 }), /too long/);
   assert.match(classifyEvaluationFailure({ name: "APIConnectionTimeoutError" }), /too long/);
   assert.match(classifyEvaluationFailure(new Error("GROQ_API_KEY is not configured.")), /not set up/);
   assert.match(classifyEvaluationFailure(new Error("Groq returned malformed JSON.")), /unexpected format/);
