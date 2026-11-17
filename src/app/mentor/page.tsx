@@ -4,6 +4,7 @@ import {
   SubmissionList,
   type SubmissionRow,
 } from "@/components/mentor/SubmissionList";
+import { MentorNav } from "@/components/mentor/MentorNav";
 import { Alert } from "@/components/ui/Alert";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { requireMentorAccess } from "@/lib/mentor/access";
@@ -92,6 +93,8 @@ export default async function MentorPage({
           Review how your students explained their solutions. The AI score is a
           first look; your grade is the final one.
         </p>
+
+        <MentorNav active="submissions" />
 
         <div className="mt-6 space-y-5">
           {error ? (
