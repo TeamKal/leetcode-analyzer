@@ -1,0 +1,95 @@
+/*
+ * Left-panel backdrop: decorative, minimal. The grid fades out toward the
+ * edges; the code symbols sit in the margins at very low contrast. Only the
+ * symbols take the pointer (for the easter egg); everything else ignores it.
+ */
+
+.lb {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lb-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.075) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, #000 15%, transparent 78%);
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, #000 15%, transparent 78%);
+}
+
+.lb-glyph {
+  position: absolute;
+  pointer-events: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.11);
+  transition: color 0.25s ease;
+}
+
+.lb-glyph::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  pointer-events: none;
+}
+
+.lb-glyph:hover {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.lb-glyph:hover::after {
+  opacity: 1;
+  transform: none;
+}
+
+/* Positions sit in the margins and the corners the demo never covers. */
+.lb-g1 {
+  top: 7%;
+  right: 6%;
+}
+
+.lb-g2 {
+  bottom: 5%;
+  left: 5%;
+}
+
+.lb-g3 {
+  top: 42%;
+  right: 2.5%;
+}
+
+.lb-g4 {
+  bottom: 4%;
+  right: 7%;
+}
+
+/* On narrow screens there is no margin to spare: keep only the grid. */
+@media (max-width: 767px) {
+  .lb-glyph {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-glyph,
+  .lb-glyph::after {
+    transition: none;
+  }
+}

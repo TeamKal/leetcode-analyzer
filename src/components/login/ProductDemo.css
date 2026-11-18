@@ -1,50 +1,317 @@
 /*
- * Login-page product demo: a miniature screen recording. A script moves a
- * cursor over the UI and the UI reacts through the data attributes below, so
- * hover, pressed and selected states look exactly like real interaction.
+ * Sign-in page product demo: a miniature screen recording with its own look.
+ * A dark instrument-panel style: one accent colour per workflow stage, mono
+ * micro-labels, big numerals, waveforms and thin rules instead of stacked cards.
+ * A script moves a cursor over the UI and the UI reacts through data attributes.
  */
 
 .pd {
-  --pd-surface: #111113;
-  --pd-raised: #151518;
-  --pd-sunken: #1c1c1f;
-  --pd-line: #222226;
-  --pd-line-strong: #2e2e33;
-  --pd-ink: #fafafa;
-  --pd-ink-2: #d4d4d8;
-  --pd-muted: #a1a1aa;
-  --pd-brand: #ef3837;
-  --pd-brand-text: #ff6b66;
-  --pd-success: #4cc38a;
-  --pd-success-soft: #15291e;
-  --pd-warning: #e8b34a;
+  --accent: #cfc5fa;
+  --pd-surface: #0d0c13;
+  --pd-raised: #14121b;
+  --pd-sunken: #1a1822;
+  --pd-line: #25222f;
+  --pd-line-strong: #36323f;
+  --pd-ink: #f5f5f7;
+  --pd-ink-2: #d0d0d8;
+  --pd-muted: #9a9aa8;
+  --pd-good: #7fd6a8;
+  --pd-danger: #ff6b66;
 }
 
 .pd-stage {
   position: relative;
 }
 
-/* Depth: the demo sits in a thin frame and lifts off the dark panel with a
-   deep shadow and a faint brand-red glow underneath. (Flat: no 3D tilt.) */
-
 .pd-frame {
   padding: 6px;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   background: linear-gradient(
     150deg,
-    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.08),
     rgba(255, 255, 255, 0.02) 55%,
-    rgba(239, 56, 55, 0.07)
+    color-mix(in srgb, var(--accent) 12%, transparent)
   );
   box-shadow:
-    0 2px 0 rgba(255, 255, 255, 0.06) inset,
+    0 2px 0 rgba(255, 255, 255, 0.05) inset,
     0 50px 90px -30px rgba(0, 0, 0, 0.95),
     0 22px 40px -22px rgba(0, 0, 0, 0.9),
-    0 0 70px -30px rgba(239, 56, 55, 0.35);
+    0 0 70px -34px var(--accent);
+  transition: box-shadow 0.6s ease;
 }
 
-/* Cursor ----------------------------------------------------------------- */
+/* The workflow label above the demo ----------------------------------------- */
+
+.pd-label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-left: 2px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pd-label-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.pd-label {
+  min-width: 15ch;
+  color: var(--pd-ink);
+  font-weight: 600;
+}
+
+.pd-label[data-glitch="true"] {
+  animation: pd-label-glitch 0.38s steps(2, end) both;
+}
+
+.pd-label-count {
+  margin-left: auto;
+  color: var(--pd-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stage rail ------------------------------------------------------------------ */
+
+.pd-rail {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 12px 18px;
+  list-style: none;
+  border-bottom: 1px solid var(--pd-line);
+  background: var(--pd-raised);
+}
+
+.pd-rail li {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pd-rail li:last-child {
+  flex: 0 0 auto;
+}
+
+.pd-rail li:not(:last-child)::after {
+  content: "";
+  flex: 1 1 12px;
+  height: 1px;
+  margin: 0 8px;
+  background: var(--pd-line-strong);
+  transition: background-color 0.4s ease;
+}
+
+.pd-rail li[data-state="done"]:not(:last-child)::after {
+  background: var(--accent);
+}
+
+.pd-node {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 1px solid var(--pd-line-strong);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--pd-muted);
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.pd-rail li[data-state="done"] .pd-node {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pd-rail li[data-state="active"] .pd-node {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #09090b;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.pd-node-label {
+  display: none;
+  font-size: 11.5px;
+  color: var(--pd-muted);
+  white-space: nowrap;
+}
+
+.pd-rail li[data-state="active"] .pd-node-label {
+  color: var(--pd-ink);
+}
+
+@media (min-width: 640px) {
+  .pd-node-label {
+    display: inline;
+  }
+}
+
+/* Viewport ---------------------------------------------------------------------- */
+
+.pd-viewport {
+  position: relative;
+  height: 366px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.016) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      110% 80% at 100% 0%,
+      color-mix(in srgb, var(--accent) 13%, transparent),
+      transparent 62%
+    ),
+    var(--pd-surface);
+}
+
+.pd-body {
+  height: 100%;
+  padding: 20px 22px;
+  transition: opacity 0.4s ease;
+}
+
+.pd-window[data-fade="true"] .pd-body {
+  opacity: 0;
+}
+
+.pd-pane {
+  height: 100%;
+}
+
+.pd-kicker {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.pd-display {
+  margin-top: 6px;
+  font-size: clamp(19px, 2.4vw, 25px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--pd-ink);
+}
+
+/* The glitch transition: a short, controlled displacement with an RGB split and
+   a scan line. It always ends on the clean frame. ------------------------------ */
+
+.pd-scan {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 5;
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--accent) 20%, #fff 50%, var(--accent) 80%, transparent);
+  box-shadow: 0 0 14px 2px var(--accent);
+}
+
+.pd-viewport[data-glitch="true"] .pd-scan {
+  animation: pd-scan 0.38s ease-in-out both;
+}
+
+.pd-viewport[data-glitch="true"] .pd-body {
+  animation: pd-glitch 0.38s steps(1, end) both;
+}
+
+@keyframes pd-scan {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(366px);
+  }
+}
+
+@keyframes pd-glitch {
+  0% {
+    transform: none;
+    filter: none;
+    clip-path: inset(0);
+  }
+  14% {
+    transform: translateX(-7px);
+    filter: drop-shadow(4px 0 0 rgba(255, 107, 102, 0.7))
+      drop-shadow(-4px 0 0 rgba(143, 166, 255, 0.7));
+    clip-path: inset(6% 0 58% 0);
+  }
+  28% {
+    transform: translateX(6px);
+    clip-path: inset(50% 0 18% 0);
+  }
+  42% {
+    transform: translate(-3px, 1px);
+    clip-path: inset(0);
+  }
+  56% {
+    transform: translateX(5px) skewX(-2deg);
+    filter: drop-shadow(3px 0 0 rgba(255, 107, 102, 0.6))
+      drop-shadow(-3px 0 0 rgba(143, 166, 255, 0.6));
+    clip-path: inset(28% 0 36% 0);
+  }
+  72% {
+    transform: translateX(-3px);
+    clip-path: inset(0 0 44% 0);
+  }
+  86% {
+    transform: translateX(1px);
+    filter: none;
+    clip-path: inset(0);
+  }
+  100% {
+    transform: none;
+    filter: none;
+    clip-path: inset(0);
+  }
+}
+
+@keyframes pd-label-glitch {
+  0% {
+    transform: translateX(0);
+    text-shadow: none;
+  }
+  35% {
+    transform: translateX(-2px);
+    text-shadow: 2px 0 rgba(255, 107, 102, 0.7), -2px 0 rgba(143, 166, 255, 0.7);
+  }
+  70% {
+    transform: translateX(2px);
+    text-shadow: 1px 0 rgba(255, 107, 102, 0.5), -1px 0 rgba(143, 166, 255, 0.5);
+  }
+  100% {
+    transform: none;
+    text-shadow: none;
+  }
+}
+
+/* Cursor ------------------------------------------------------------------------ */
 
 .pd-cursor {
   position: absolute;
@@ -71,7 +338,7 @@
   height: 34px;
   margin: -17px 0 0 -17px;
   border-radius: 9999px;
-  border: 2px solid var(--pd-brand);
+  border: 2px solid var(--accent);
   pointer-events: none;
   animation: pd-ripple 0.55s ease-out forwards;
 }
@@ -87,7 +354,7 @@
   }
 }
 
-/* Controls: hover / pressed / selected, driven by the script ---------------- */
+/* Controls ---------------------------------------------------------------------- */
 
 .pd-ctl {
   transition:
@@ -103,66 +370,407 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 34px;
+  height: 38px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.pd-btn-primary {
+.pd-btn-solid {
   background: var(--pd-ink);
   color: #09090b;
 }
 
-.pd-btn-primary[data-hover="true"] {
-  background: #e4e4e7;
+.pd-btn-solid[data-hover="true"] {
+  background: var(--accent);
 }
 
-.pd-btn-secondary {
+.pd-btn-danger {
+  background: var(--pd-danger);
+  color: #1d0a0a;
+}
+
+.pd-btn-danger[data-hover="true"] {
+  background: #ff7a75;
+}
+
+.pd-btn-ghost {
   background: transparent;
   color: var(--pd-ink);
   border: 1px solid var(--pd-line-strong);
 }
 
-.pd-btn-secondary[data-hover="true"] {
+.pd-btn-ghost[data-hover="true"] {
   background: var(--pd-sunken);
-  border-color: #3f3f46;
+  border-color: var(--accent);
 }
 
 .pd-btn[data-pressed="true"] {
   transform: scale(0.96);
 }
 
-.pd-btn[data-busy="true"] {
-  opacity: 0.7;
-}
-
 .pd-field {
   border: 1px solid var(--pd-line-strong);
   background: var(--pd-sunken);
-  border-radius: 8px;
+  border-radius: 9px;
+  color: var(--pd-ink);
 }
 
 .pd-field[data-focus="true"] {
-  border-color: var(--pd-brand);
-  box-shadow: 0 0 0 3px rgba(239, 56, 55, 0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
-.pd-drop {
-  border: 1px dashed #3f3f46;
-  border-radius: 8px;
-  background: transparent;
+.pd-chip {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--pd-sunken);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pd-ink-2);
 }
 
-.pd-drop[data-hover="true"] {
-  border-color: var(--pd-brand);
-  background: rgba(239, 56, 55, 0.06);
+.pd-chip-good {
+  margin-top: 0;
+  background: rgba(127, 214, 168, 0.12);
+  color: var(--pd-good);
 }
 
-.pd-drop[data-pressed="true"] {
-  transform: scale(0.99);
+/* Stage 1 ----------------------------------------------------------------------- */
+
+.pd-problem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  border: 1px solid var(--pd-line-strong);
+  border-left: 3px solid var(--accent);
+  background: var(--pd-raised);
+}
+
+.pd-problem-index {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent);
+}
+
+/* Stage 2 ----------------------------------------------------------------------- */
+
+.pd-cam {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 11px;
+  border: 1px solid var(--pd-line-strong);
+  background: radial-gradient(120% 100% at 50% 0%, #1d1a27, #0f0d15);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pd-cam[data-rec="true"] {
+  border-color: var(--pd-danger);
+  box-shadow: 0 0 0 1px var(--pd-danger), 0 0 26px -8px var(--pd-danger);
+}
+
+.pd-cam-off {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px;
+  text-align: center;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--pd-muted);
+}
+
+.pd-cam-figure {
+  position: absolute;
+  inset: auto 0 0 0;
+  width: 70%;
+  margin: 0 auto;
+  fill: #2b2837;
+}
+
+.pd-cam-hud {
+  position: absolute;
+  left: 10px;
+  top: 9px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--pd-ink);
+}
+
+.pd-timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--pd-ink-2);
+}
+
+.pd-rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--pd-muted);
+}
+
+.pd-rec-dot[data-on="true"] {
+  background: var(--pd-danger);
+  animation: pd-pulse 1s ease-in-out infinite;
+}
+
+.pd-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 64px;
+}
+
+.pd-wave span {
+  flex: 1 1 0;
+  height: 14%;
+  min-width: 1px;
+  border-radius: 2px;
+  background: var(--pd-line-strong);
+  transition: background-color 0.3s ease;
+}
+
+.pd-wave[data-active="true"] span {
+  background: var(--pd-danger);
+  animation: pd-bar 0.9s ease-in-out infinite;
+}
+
+@keyframes pd-bar {
+  0%,
+  100% {
+    height: 14%;
+  }
+  50% {
+    height: var(--h);
+  }
+}
+
+@keyframes pd-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.pd-meter {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--pd-sunken);
+}
+
+.pd-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* Stage 3 ----------------------------------------------------------------------- */
+
+.pd-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 78px;
+}
+
+.pd-strip span {
+  flex: 1 1 0;
+  min-width: 1px;
+  border-radius: 2px;
+  background: var(--pd-line-strong);
+  transition: background-color 0.25s ease;
+}
+
+.pd-strip span[data-lit="true"] {
+  background: var(--accent);
+}
+
+.pd-mask-line {
+  height: 9px;
+  border-radius: 3px;
+  opacity: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--pd-line-strong) 0 14px,
+    var(--pd-sunken) 14px 19px
+  );
+  filter: blur(1.2px);
+  transition: opacity 0.4s ease;
+}
+
+.pd-mask-line[data-shown="true"] {
+  opacity: 1;
+}
+
+/* Stage 4 ----------------------------------------------------------------------- */
+
+.pd-total,
+.pd-big {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--pd-ink);
+}
+
+.pd-total {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.pd-big {
+  margin-top: 4px;
+  font-size: 54px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.pd-total small,
+.pd-big small,
+.pd-stamp-score small {
+  margin-left: 2px;
+  font-size: 0.4em;
+  letter-spacing: 0;
+  color: var(--pd-muted);
+}
+
+.pd-gauges {
+  position: relative;
+  display: grid;
+  gap: 9px;
+}
+
+.pd-gauge {
+  display: grid;
+  grid-template-columns: minmax(96px, 150px) 1fr 44px;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--pd-muted);
+  transition: color 0.3s ease;
+}
+
+.pd-gauge[data-done="true"] {
+  color: var(--pd-ink);
+}
+
+.pd-gauge-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pd-track {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--pd-sunken);
+}
+
+.pd-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, #000), var(--accent));
+}
+
+.pd-track-sm {
+  width: 84px;
+  height: 5px;
+}
+
+.pd-gauge-value {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-gauge-value small {
+  color: var(--pd-muted);
+}
+
+.pd-sweep {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: 0;
+  width: 56px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    transparent
+  );
+  animation: pd-sweep 1.8s linear infinite;
+}
+
+@keyframes pd-sweep {
+  from {
+    transform: translateX(-60px);
+  }
+  to {
+    transform: translateX(calc(100cqw + 60px));
+  }
+}
+
+.pd-gauges {
+  container-type: inline-size;
+}
+
+/* Stage 5 ----------------------------------------------------------------------- */
+
+.pd-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--accent);
+  animation: pd-pulse 1.1s ease-in-out infinite;
+}
+
+.pd-stamp {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px 9px;
+  border-radius: 10px;
+  border: 1.5px solid var(--pd-good);
+  background: rgba(127, 214, 168, 0.08);
+  transform: rotate(-2deg);
+}
+
+.pd-stamp .pd-kicker {
+  color: var(--pd-good);
+}
+
+.pd-stamp-score {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--pd-good);
 }
 
 .pd-row {
@@ -197,53 +805,7 @@
   overflow: hidden;
 }
 
-.pd-chip[data-hover="true"] {
-  border-color: #3f3f46;
-}
-
-.pd-word-fix {
-  border-radius: 4px;
-  transition:
-    background-color 0.25s ease,
-    color 0.25s ease;
-}
-
-.pd-word-fix[data-hover="true"] {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.pd-word-fix[data-fixing="true"] {
-  background: rgba(239, 56, 55, 0.22);
-  color: var(--pd-brand-text);
-}
-
-.pd-word-fix[data-fixed="true"] {
-  background: rgba(76, 195, 138, 0.18);
-  color: var(--pd-success);
-}
-
-/* Progress bars: they animate because their width changes --------------------- */
-
-.pd-meter {
-  height: 4px;
-  overflow: hidden;
-  border-radius: 9999px;
-  background: var(--pd-sunken);
-}
-
-.pd-meter > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--pd-ink);
-  transition: width 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-.pd-meter[data-emphasis="true"] > span {
-  background: var(--pd-brand);
-}
-
-/* Entrances ------------------------------------------------------------------ */
+/* Entrances --------------------------------------------------------------------- */
 
 @keyframes pd-in {
   from {
@@ -282,26 +844,46 @@
   animation: pd-caret 1s step-end infinite;
 }
 
-.pd-window[data-fade="true"] .pd-body {
-  opacity: 0;
-}
+@media (max-width: 520px) {
+  .pd-body {
+    padding: 16px 14px;
+  }
 
-.pd-body {
-  transition: opacity 0.4s ease;
+  .pd-gauge {
+    grid-template-columns: minmax(80px, 110px) 1fr 40px;
+    gap: 8px;
+  }
+
+  .pd-track-sm {
+    width: 56px;
+  }
+
+  .pd-big {
+    font-size: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pd-in,
   .pd-fade,
   .pd-caret,
-  .pd-ripple {
-    animation: none;
+  .pd-ripple,
+  .pd-sweep,
+  .pd-pulse,
+  .pd-rec-dot,
+  .pd-wave span,
+  .pd-label,
+  .pd-viewport .pd-scan,
+  .pd-viewport .pd-body {
+    animation: none !important;
   }
 
   .pd-ctl,
-  .pd-meter > span,
   .pd-row-detail,
-  .pd-body {
+  .pd-body,
+  .pd-strip span,
+  .pd-mask-line,
+  .pd-frame {
     transition: none;
   }
 }

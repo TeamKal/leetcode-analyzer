@@ -3,9 +3,9 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 /**
- * Shrinks its content (never enlarges it) so it fits the space this box has
- * been given, on screens wide enough for the side-by-side layout. The page then
- * never needs to scroll. The content keeps its design: it is scaled, not
+ * Scales its content to the space this box has been given, on screens wide
+ * enough for the side-by-side layout: down to fit (so the page never needs to
+ * scroll), and up by at most `maxScale` when there is room to spare. The content keeps its design: it is scaled, not
  * rearranged, and its width is widened by the same factor so it still fills the
  * column. Below the md breakpoint the layout is a normal scrolling stack, so no
  * scaling is applied.
@@ -13,9 +13,11 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 export function FitToHeight({
   children,
   minScale = 0.55,
+  maxScale = 1,
 }: {
   children: ReactNode;
   minScale?: number;
+  maxScale?: number;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -35,7 +37,7 @@ export function FitToHeight({
       // Unscaled height of the content at its current (widened) width.
       const natural = inner.offsetHeight;
       if (!available || !natural) return;
-      const scale = Math.max(minScale, Math.min(1, available / natural));
+      const scale = Math.max(minScale, Math.min(maxScale, available / natural));
       const offset = Math.max(0, (available - natural * scale) / 2);
       setFit((f) =>
         Math.abs(f.scale - scale) < 0.002 && Math.abs(f.offset - offset) < 0.5
@@ -53,7 +55,7 @@ export function FitToHeight({
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [minScale]);
+  }, [minScale, maxScale]);
 
   return (
     <div ref={boxRef} className="relative min-h-0 w-full flex-1">
