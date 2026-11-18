@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { checkSubmissionInput } from "../src/lib/leetcode.ts";
 import {
-  asReviewPhase,
   canStart,
   captionFor,
   IDLE_TRACKER,
   isBusy,
   reviewPhaseFromStatus,
-  REVIEW_FAILED_MESSAGE,
   stageViews,
   trackerReducer,
 } from "../src/lib/submit/progress.ts";
@@ -75,87 +73,52 @@ test("backend statuses map to review phases", () => {
   assert.equal(reviewPhaseFromStatus(undefined), null);
 });
 
-test("only known review phases are accepted from an API response", () => {
-  for (const phase of ["queued", "reviewing", "scored", "graded", "failed"]) {
-    assert.equal(asReviewPhase(phase), phase);
-  }
-  for (const value of [null, undefined, "", "done", "evaluated", 3, {}]) {
-    assert.equal(asReviewPhase(value), null);
-  }
-});
-
 // --- The tracker ---------------------------------------------------------------
 
 test("a normal run moves through the stages in order", () => {
-  assert.deepEqual(states(IDLE_TRACKER), ["pending", "pending", "pending", "pending"]);
+  assert.deepEqual(states(IDLE_TRACKER), ["pending", "pending", "pending"]);
 
   let t = run([{ type: "start" }]);
-  assert.deepEqual(states(t), ["active", "pending", "pending", "pending"]);
+  assert.deepEqual(states(t), ["active", "pending", "pending"]);
 
   t = run([{ type: "progress", percent: 42 }], t);
   assert.equal(t.uploadPercent, 42);
   assert.match(captionFor(t), /42%/);
 
   t = run([{ type: "saved" }], t);
-  assert.deepEqual(states(t), ["done", "active", "pending", "pending"]);
+  assert.deepEqual(states(t), ["done", "active", "pending"]);
   assert.equal(t.uploadPercent, null);
 
   t = run([{ type: "submitted" }], t);
-  assert.deepEqual(states(t), ["done", "done", "active", "pending"]);
-
-  t = run([{ type: "review", phase: "queued" }], t);
-  assert.match(captionFor(t), /waiting for its AI review/);
-  t = run([{ type: "review", phase: "reviewing" }], t);
-  assert.match(captionFor(t), /reading/);
-  assert.deepEqual(states(t), ["done", "done", "active", "pending"]);
-
-  t = run([{ type: "review", phase: "scored" }], t);
   assert.equal(t.phase, "complete");
-  assert.deepEqual(states(t), ["done", "done", "done", "done"]);
+  assert.deepEqual(states(t), ["done", "done", "done"]);
+  assert.match(captionFor(t), /Submission successful/);
 });
 
-test("done is only reached when the backend says the review is scored or graded", () => {
-  const reviewing = run([{ type: "start" }, { type: "saved" }, { type: "submitted" }]);
-  for (const phase of ["queued", "reviewing"]) {
-    assert.notEqual(run([{ type: "review", phase }], reviewing).phase, "complete");
-  }
-  for (const phase of ["scored", "graded"]) {
-    assert.equal(run([{ type: "review", phase }], reviewing).phase, "complete");
-  }
+test("there is no AI review stage: success does not wait for the review", () => {
+  assert.ok(!stageViews(IDLE_TRACKER).some((stage) => /review/i.test(stage.label)));
+  const submitting = run([{ type: "start" }, { type: "saved" }]);
+  assert.equal(run([{ type: "submitted" }], submitting).phase, "complete");
 });
 
 test("a failed stage is marked, earlier stages stay done, later ones pending", () => {
   let t = run([{ type: "start" }, { type: "fail", at: "save", message: "Upload failed." }]);
-  assert.deepEqual(states(t), ["failed", "pending", "pending", "pending"]);
+  assert.deepEqual(states(t), ["failed", "pending", "pending"]);
   assert.equal(captionFor(t), "Upload failed.");
 
   t = run([{ type: "start" }, { type: "saved" }, { type: "fail", at: "submit", message: "No." }]);
-  assert.deepEqual(states(t), ["done", "failed", "pending", "pending"]);
-
-  t = run([{ type: "start" }, { type: "saved" }, { type: "submitted" }, { type: "review", phase: "failed" }]);
-  assert.deepEqual(states(t), ["done", "done", "failed", "pending"]);
-  assert.equal(captionFor(t), REVIEW_FAILED_MESSAGE);
+  assert.deepEqual(states(t), ["done", "failed", "pending"]);
 });
 
 test("events out of order are ignored, so a stage can never be skipped", () => {
   assert.deepEqual(run([{ type: "saved" }]), IDLE_TRACKER);
   assert.deepEqual(run([{ type: "submitted" }]), IDLE_TRACKER);
-  assert.deepEqual(run([{ type: "review", phase: "scored" }]), IDLE_TRACKER);
   const saving = run([{ type: "start" }]);
-  assert.equal(run([{ type: "review", phase: "scored" }], saving).phase, "saving");
   assert.equal(run([{ type: "submitted" }], saving).phase, "saving");
   // A percentage only counts while saving, and is clamped.
   assert.equal(run([{ type: "progress", percent: 50 }]).uploadPercent, null);
   assert.equal(run([{ type: "progress", percent: 250 }], saving).uploadPercent, 100);
   assert.equal(run([{ type: "progress", percent: -4 }], saving).uploadPercent, 0);
-});
-
-test("the slow notice only applies while reviewing and says the page can be left", () => {
-  const reviewing = run([{ type: "start" }, { type: "saved" }, { type: "submitted" }]);
-  const slow = run([{ type: "slow" }], reviewing);
-  assert.equal(slow.slow, true);
-  assert.match(captionFor(slow), /taking longer than usual/);
-  assert.equal(run([{ type: "slow" }], IDLE_TRACKER).slow, false);
 });
 
 test("the submit button only starts a run once, and only with a link and a recording", () => {
@@ -168,7 +131,6 @@ test("the submit button only starts a run once, and only with a link and a recor
     [{ type: "start" }],
     [{ type: "start" }, { type: "saved" }],
     [{ type: "start" }, { type: "saved" }, { type: "submitted" }],
-    [{ type: "start" }, { type: "saved" }, { type: "submitted" }, { type: "review", phase: "scored" }],
   ]) {
     assert.equal(canStart(run(events), ready), false);
   }
@@ -176,7 +138,7 @@ test("the submit button only starts a run once, and only with a link and a recor
   assert.equal(canStart(run([{ type: "start" }, { type: "fail", at: "save", message: "x" }]), ready), true);
 });
 
-test("busy means saving, submitting or reviewing", () => {
+test("busy means saving or submitting", () => {
   assert.equal(isBusy(IDLE_TRACKER), false);
   assert.equal(isBusy(run([{ type: "start" }])), true);
   assert.equal(isBusy(run([{ type: "start" }, { type: "fail", at: "save", message: "x" }])), false);

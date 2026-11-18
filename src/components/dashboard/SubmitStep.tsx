@@ -46,8 +46,8 @@ function SuccessCard({ onAnother }: { onAnother: () => void }) {
           Submission successful
         </h3>
         <p className="mt-1 max-w-[52ch] text-sm leading-6 text-ink-2">
-          Your explanation was received and the AI review is done. Your mentor will
-          give the final grade.
+          Your recording and explanation were received. The AI review runs in the
+          background, and your mentor will give the final grade.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {!isPageLocked("submissions") && (
@@ -72,7 +72,8 @@ function SuccessCard({ onAnother }: { onAnother: () => void }) {
  * Step 3: submit, and watch what is really happening. Before a run it shows the
  * button (enabled only when the link and the recording are ready). During a run
  * the button gives way to the progress path, so a second click is impossible.
- * Success appears only once the backend confirms the review is done.
+ * Success appears once the server has accepted the submission (video saved,
+ * transcript made). It does not wait for the AI review.
  */
 export function SubmitStep({ tracker, ready, missing, canRetry, onSubmit, onAnother }: Props) {
   const running = isBusy(tracker);
