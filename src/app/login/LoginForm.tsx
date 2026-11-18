@@ -102,14 +102,12 @@ export function LoginForm({ initialError, playIntro = false }: Props) {
           >
             <StrokeTitle text="Student Tracker" start={introDone} />
           </h1>
-          <p className="mt-2.5 text-center text-[14px] leading-6 text-zinc-400 md:truncate md:text-[15px]">
-            Explain your solution on camera. AI scores it, your mentor grades it.
-          </p>
+          
         </div>
         {/* The demo supports the title: a narrower column, centred in the space
             that is left, with room on every side. */}
         <div className="relative mx-auto flex min-h-0 w-full max-w-[780px] flex-1 flex-col pt-7 md:pt-5">
-          <div className="mx-auto flex min-h-0 w-full max-w-[680px] flex-1 flex-col">
+          <div className="mx-auto flex min-h-0 w-full max-w-[760px] flex-1 flex-col">
             <FitToHeight>
               <ProductDemo />
             </FitToHeight>
@@ -145,8 +143,7 @@ export function LoginForm({ initialError, playIntro = false }: Props) {
             Welcome
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Sign in with Google to submit your solution video and see your
-            feedback.
+            Sign in with Google.
           </p>
 
           {error && (

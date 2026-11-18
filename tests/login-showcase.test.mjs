@@ -7,6 +7,7 @@ import {
   STROKE,
   strokeTotalMs,
   strokeWidthFor,
+  TITLE_TRIM_PX,
   titleTotalMs,
   toGlyphs,
 } from "../src/components/login/stroke.ts";
@@ -47,6 +48,14 @@ test("fitFontSize is limited by whichever of height or width is tighter", () => 
   assert.equal(fitFontSize(800, 500, 7), 110);
   // Never smaller than the minimum.
   assert.equal(fitFontSize(10, 10, 7), 24);
+});
+
+test("the title is set a few pixels smaller than the biggest that fits", () => {
+  assert.ok(TITLE_TRIM_PX >= 5 && TITLE_TRIM_PX <= 10);
+  const biggest = fitFontSize(2000, 100, 7);
+  assert.equal(fitFontSize(2000, 100, 7, { trim: TITLE_TRIM_PX }), biggest - TITLE_TRIM_PX);
+  // Still never below the minimum.
+  assert.equal(fitFontSize(10, 10, 7, { trim: TITLE_TRIM_PX }), 24);
 });
 
 test("the baseline centres the ink vertically", () => {

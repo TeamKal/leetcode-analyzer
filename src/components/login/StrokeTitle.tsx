@@ -5,6 +5,7 @@ import {
   centredBaseline,
   fitFontSize,
   letterDelay,
+  TITLE_TRIM_PX,
   strokeWidthFor,
   titleTotalMs,
   toGlyphs,
@@ -56,7 +57,7 @@ export function StrokeTitle({ text, start, className = "" }: Props) {
       ctx.letterSpacing = `${spacingEm * reference}px`;
       const widthPerEm = ctx.measureText(text).width / reference;
 
-      const fontPx = fitFontSize(width, height, widthPerEm);
+      const fontPx = fitFontSize(width, height, widthPerEm, { trim: TITLE_TRIM_PX });
       ctx.font = `700 ${fontPx}px ${style.fontFamily}`;
       ctx.letterSpacing = `${spacingEm * fontPx}px`;
       const metrics = ctx.measureText(text);
