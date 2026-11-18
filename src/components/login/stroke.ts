@@ -32,19 +32,23 @@ export const strokeTotalMs = (letterCount: number) =>
 export const titleTotalMs = (letterCount: number) =>
   Math.max(strokeTotalMs(letterCount), STROKE.fillDelayMs + STROKE.fillSweepMs);
 
+/** How much smaller than "as large as fits" the title is set, in pixels. */
+export const TITLE_TRIM_PX = 8;
+
 /**
  * The largest font size that fits the box: limited by the box height, and by
- * the box width given how wide the text is per 1em of font size.
+ * the box width given how wide the text is per 1em of font size, less `trim`
+ * pixels so the title sits a little smaller than the biggest it could be.
  */
 export function fitFontSize(
   boxWidth: number,
   boxHeight: number,
   widthPerEm: number,
-  { heightShare = 0.8, widthShare = 0.97, min = 24 } = {},
+  { heightShare = 0.8, widthShare = 0.97, min = 24, trim = 0 } = {},
 ) {
   const byHeight = boxHeight * heightShare;
   const byWidth = (boxWidth * widthShare) / Math.max(0.1, widthPerEm);
-  return Math.floor(Math.max(min, Math.min(byHeight, byWidth)));
+  return Math.floor(Math.max(min, Math.min(byHeight, byWidth) - trim));
 }
 
 /**
