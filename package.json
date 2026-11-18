@@ -9,6 +9,7 @@
     "test:evaluation": "node --experimental-strip-types --test tests/evaluation.test.mjs tests/evaluation-v2.test.mjs",
     "test:cleanup": "node --experimental-strip-types --test tests/cleanup.test.mjs tests/cleanup-processor.test.mjs",
     "test:mentor": "node --experimental-strip-types --test tests/mentor-grading.test.mjs tests/format.test.mjs tests/students-validate.test.mjs tests/student-status.test.mjs",
+    "test:submit": "node --experimental-strip-types --test tests/submit-flow.test.mjs tests/locked-pages.test.mjs",
     "test:login": "node --experimental-strip-types --test tests/login-showcase.test.mjs",
     "test:deepgram": "node --experimental-strip-types --test tests/deepgram.test.mjs",
     "lint": "eslint"

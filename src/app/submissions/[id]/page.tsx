@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { isPageLocked } from "@/lib/student/lockedPages";
 import { signOut } from "@/app/actions";
 import { EvaluationView } from "@/components/mentor/EvaluationView";
 import {
@@ -7,7 +8,7 @@ import {
   StudentStatusBadge,
 } from "@/components/student/SubmissionsList";
 import { Alert } from "@/components/ui/Alert";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { PillNav } from "@/components/dashboard/PillNav";
 import { Badge } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
 import { formatScore } from "@/lib/mentor/grading";
@@ -24,15 +25,14 @@ export default async function MySubmissionPage({
   if (!isUuid(id)) notFound();
 
   const { studentId } = await requireStudentAccess();
+  // Locked for now: students go back Home. See lockedPages.ts to open it again.
+  if (isPageLocked("submissions")) redirect("/");
   const submission = await getMySubmission(studentId, id);
   if (submission === undefined) notFound();
 
   return (
     <div className="ds min-h-screen bg-page font-sans text-ink antialiased">
-      <AppHeader
-        signOutAction={signOut}
-        links={[{ href: "/", label: "Submit a solution" }]}
-      />
+      <PillNav active="submissions" signOutAction={signOut} />
       <main className="mx-auto w-full max-w-[760px] px-4 pb-20 pt-6 sm:px-6">
         <Link
           href="/submissions"

@@ -1,0 +1,465 @@
+/*
+ * Student dashboard: the connected steps and the trace-line progress. Colours are
+ * the sign-in panel's own: white surfaces, near-black ink, the red brand accent
+ * for what is happening right now, and the lilac / violet of the waves and the
+ * mascot for what is done.
+ */
+
+/* The three steps, joined by a rail ------------------------------------------ */
+
+.fs {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 640px) {
+  .fs {
+    gap: 20px;
+  }
+}
+
+.fs-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fs-node {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--line-strong, #dcdce0);
+  border-radius: 9999px;
+  background: var(--surface, #fff);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted, #6b6966);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.fs-line {
+  position: relative;
+  flex: 1 1 auto;
+  width: 2px;
+  min-height: 16px;
+  margin: 6px 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line, #ececef);
+}
+
+/* The lilac runs down the rail once the step is done. */
+.fs-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #cfc5fa;
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.7s cubic-bezier(0.3, 0.7, 0.2, 1) 0.15s;
+}
+
+.fs[data-state="done"] .fs-line::after {
+  transform: scaleY(1);
+}
+
+/* Steps rise in one after another when the page opens. */
+.fs {
+  animation: fs-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.fs:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.fs:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+@keyframes fs-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* A step that has just finished: the node pops and sends out one ring. */
+.fs[data-state="done"] .fs-node {
+  position: relative;
+  animation: fs-pop 0.5s cubic-bezier(0.3, 1.5, 0.4, 1);
+}
+
+.fs[data-state="done"] .fs-node::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid #a999e8;
+  border-radius: 9999px;
+  opacity: 0;
+  animation: fs-ring 0.8s ease-out 0.1s;
+}
+
+.fs-check path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: ok-draw 0.4s ease-out 0.15s forwards;
+}
+
+@keyframes fs-pop {
+  40% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes fs-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.fs[data-last="true"] .fs-line {
+  visibility: hidden;
+}
+
+.fs[data-state="active"] .fs-node {
+  border-color: var(--ink, #141414);
+  background: var(--ink, #141414);
+  color: #fff;
+}
+
+.fs[data-state="done"] .fs-node {
+  border-color: #a999e8;
+  background: #f1edff;
+  color: #5b4db8;
+}
+
+.fs-card {
+  position: relative;
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid var(--line, #ececef);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .fs-card {
+    padding: 24px;
+  }
+}
+
+.fs[data-last="true"] .fs-card {
+  margin-bottom: 0;
+}
+
+.fs[data-state="active"] .fs-card {
+  border-color: var(--line-strong, #dcdce0);
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04), 0 12px 28px -18px rgba(20, 20, 20, 0.18);
+  animation: fs-wake 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The step that has just unlocked settles into place. */
+@keyframes fs-wake {
+  from {
+    transform: translateY(8px);
+    box-shadow: 0 1px 2px rgba(20, 20, 20, 0);
+  }
+}
+
+/* A soft light follows the pointer along the card's border. */
+.fs-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: 12px;
+  background: radial-gradient(
+    220px circle at var(--sx, 50%) var(--sy, 50%),
+    rgba(169, 153, 232, 0.9),
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: calc(var(--lit, 0) * 0.9);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* The trace: a connected path of stages ---------------------------------------- */
+
+.tr {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tr-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 72px;
+}
+
+.tr-stage:last-child {
+  min-height: 0;
+}
+
+.tr-node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--line-strong, #dcdce0);
+  border-radius: 9999px;
+  background: var(--surface, #fff);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--faint, #716e69);
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.tr-text {
+  display: grid;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.tr-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--muted, #6b6966);
+  transition: color 0.3s ease;
+}
+
+.tr-hint {
+  font-size: 12.5px;
+  color: var(--faint, #716e69);
+}
+
+/* The path between two stages: a track, and a fill that grows along it. */
+.tr-link {
+  position: absolute;
+  left: 19px;
+  top: 44px;
+  bottom: 4px;
+  width: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line, #ececef);
+}
+
+.tr-link::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--fill, 0) * 100%);
+  background: #a999e8;
+  transition: height 0.6s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+/* While a stage is working and has no real percentage: a light travels down the path. */
+.tr-link[data-flowing="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 40%;
+  background: linear-gradient(to bottom, transparent, #cfc5fa, transparent);
+  animation: tr-flow 1.6s ease-in-out infinite;
+}
+
+@keyframes tr-flow {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(260%);
+  }
+}
+
+/* Stage states */
+.tr-stage[data-state="active"] .tr-node {
+  border-color: var(--brand, #ef3837);
+  color: var(--brand-text, #c42b2a);
+  box-shadow: 0 0 0 5px rgba(239, 56, 55, 0.12);
+  animation: tr-halo 1.8s ease-in-out infinite;
+}
+
+.tr-stage[data-state="active"] .tr-label {
+  color: var(--ink, #141414);
+}
+
+.tr-stage[data-state="done"] .tr-node {
+  border-color: #a999e8;
+  background: #f1edff;
+  color: #5b4db8;
+}
+
+.tr-stage[data-state="done"] .tr-label {
+  color: var(--ink-2, #3d3b38);
+}
+
+.tr-stage[data-state="failed"] .tr-node {
+  border-color: var(--action, #d32f2e);
+  background: var(--action, #d32f2e);
+  color: #fff;
+}
+
+.tr-stage[data-state="failed"] .tr-label {
+  color: var(--brand-text, #c42b2a);
+}
+
+.tr-spin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 9999px;
+  animation: tr-spin 0.9s linear infinite;
+}
+
+@keyframes tr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tr-halo {
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 56, 55, 0.05);
+  }
+}
+
+/* Wide screens: the path runs across. */
+@media (min-width: 640px) {
+  .tr {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .tr-stage {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    min-height: 0;
+    text-align: center;
+  }
+
+  .tr-link {
+    left: calc(50% + 28px);
+    right: calc(-50% + 28px);
+    top: 19px;
+    bottom: auto;
+    width: auto;
+    height: 2px;
+  }
+
+  .tr-link::after {
+    inset: 0 auto 0 0;
+    width: calc(var(--fill, 0) * 100%);
+    height: auto;
+    transition: width 0.6s cubic-bezier(0.3, 0.7, 0.2, 1);
+  }
+
+  .tr-link[data-flowing="true"]::before {
+    inset: 0 auto 0 0;
+    width: 40%;
+    height: auto;
+    background: linear-gradient(to right, transparent, #cfc5fa, transparent);
+    animation-name: tr-flow-x;
+  }
+}
+
+@keyframes tr-flow-x {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+/* The caption under the path */
+.tr-caption {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-2, #fafafa);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2, #3d3b38);
+}
+
+.tr-caption[data-failed="true"] {
+  background: var(--brand-soft, #fdeeee);
+  color: var(--brand-text, #c42b2a);
+}
+
+/* Success: a small check that draws itself once */
+.ok-check path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: ok-draw 0.5s ease-out 0.15s forwards;
+}
+
+@keyframes ok-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-stage[data-state="active"] .tr-node,
+  .tr-spin,
+  .tr-link[data-flowing="true"]::before {
+    animation: none;
+  }
+
+  .ok-check path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .fs,
+  .fs[data-state="active"] .fs-card,
+  .fs[data-state="done"] .fs-node,
+  .fs[data-state="done"] .fs-node::after,
+  .fs-check path {
+    animation: none;
+  }
+
+  .fs-check path {
+    stroke-dashoffset: 0;
+  }
+
+  .fs-card::before,
+  .fs-line::after {
+    transition: none;
+  }
+
+  .fs-node,
+  .fs-line,
+  .fs-card,
+  .tr-node,
+  .tr-label,
+  .tr-link::after {
+    transition: none;
+  }
+}

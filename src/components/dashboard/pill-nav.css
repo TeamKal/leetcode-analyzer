@@ -1,0 +1,297 @@
+/*
+ * Pill nav. Colours are the sign-in panel's: white surface, near-black ink, the
+ * red brand accent for the active dot and Sign out. The hover fill is a circle
+ * that grows from the bottom edge of each pill (transform only, so it stays
+ * smooth).
+ */
+
+.pn-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  /* No bar behind the pill: only the pill itself is drawn. The bar ignores
+     clicks so the page stays usable beside the pill. */
+  pointer-events: none;
+}
+
+.pn-bar > * > * {
+  pointer-events: auto;
+}
+
+.pn-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--line, #ececef);
+  border-radius: 9999px;
+  background: var(--surface, #fff);
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04);
+}
+
+.pn-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink-2, #3d3b38);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.pn-item:focus-visible {
+  outline: 2px solid var(--brand, #ef3837);
+  outline-offset: 2px;
+}
+
+/* The hover fill: a circle centred on the pill's bottom edge, scaled up. */
+.pn-circle {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 240%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: var(--ink, #141414);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.4s cubic-bezier(0.3, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+.pn-label {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+}
+
+.pn-text {
+  grid-area: 1 / 1;
+  transition: transform 0.35s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.pn-text-hover {
+  color: #fff;
+  transform: translateY(120%);
+}
+
+.pn-item:hover .pn-circle,
+.pn-item:focus-visible .pn-circle {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.pn-item:hover .pn-text:not(.pn-text-hover),
+.pn-item:focus-visible .pn-text:not(.pn-text-hover) {
+  transform: translateY(-120%);
+}
+
+.pn-item:hover .pn-text-hover,
+.pn-item:focus-visible .pn-text-hover {
+  transform: translateY(0);
+}
+
+/* The page you are on: a soft pill, and a small red dot underneath. */
+.pn-item[data-active="true"] {
+  background: var(--sunken, #f1f1f3);
+  color: var(--ink, #141414);
+}
+
+.pn-dot {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 9999px;
+  background: var(--brand, #ef3837);
+  transform: scale(0);
+  transition: transform 0.3s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.pn-item[data-active="true"] .pn-dot {
+  transform: scale(1);
+}
+
+/* Not built yet: visible, quiet, and not a link. */
+.pn-item-soon {
+  cursor: default;
+  color: var(--muted, #6b6966);
+}
+
+/* The lock: a tiny wobble when the pointer tries a locked page. */
+.pn-lock {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  opacity: 0.75;
+  transform-origin: 50% 70%;
+}
+
+.pn-item-soon:hover .pn-lock {
+  animation: pn-lock-shake 0.45s ease-in-out;
+}
+
+@keyframes pn-lock-shake {
+  20% {
+    transform: rotate(-14deg);
+  }
+  45% {
+    transform: rotate(11deg);
+  }
+  70% {
+    transform: rotate(-6deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-item-soon:hover .pn-lock {
+    animation: none;
+  }
+}
+
+/* Sign out: the same pill, tinted with the brand red so it reads as different. */
+.pn-item-out {
+  background: var(--brand-soft, #fdeeee);
+  color: var(--brand-text, #c42b2a);
+}
+
+.pn-item-out .pn-circle {
+  background: var(--action, #d32f2e);
+}
+
+/* Mobile ------------------------------------------------------------------- */
+
+.pn-menu-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line, #ececef);
+  border-radius: 9999px;
+  background: var(--surface, #fff);
+  cursor: pointer;
+}
+
+.pn-menu-button:focus-visible {
+  outline: 2px solid var(--brand, #ef3837);
+  outline-offset: 2px;
+}
+
+.pn-bars {
+  position: relative;
+  width: 16px;
+  height: 10px;
+}
+
+.pn-bars span {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ink, #141414);
+  transition: transform 0.3s ease, top 0.3s ease;
+}
+
+.pn-bars span:first-child {
+  top: 1px;
+}
+
+.pn-bars span:last-child {
+  top: 7px;
+}
+
+.pn-bars[data-open="true"] span:first-child {
+  top: 4px;
+  transform: rotate(45deg);
+}
+
+.pn-bars[data-open="true"] span:last-child {
+  top: 4px;
+  transform: rotate(-45deg);
+}
+
+.pn-dropdown {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  width: 220px;
+  margin-left: -110px;
+  padding: 8px;
+  border: 1px solid var(--line, #ececef);
+  border-radius: 20px;
+  background: var(--surface, #fff);
+  box-shadow: 0 16px 40px -12px rgba(20, 20, 20, 0.22);
+  transform-origin: top center;
+}
+
+.pn-dropdown[data-open="true"] {
+  animation: pn-drop 0.22s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.pn-stack {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pn-stack .pn-item {
+  width: 100%;
+  justify-content: flex-start;
+  height: 42px;
+}
+
+.pn-stack form {
+  display: contents;
+}
+
+@keyframes pn-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-circle,
+  .pn-text,
+  .pn-dot,
+  .pn-bars span,
+  .pn-item {
+    transition: none;
+  }
+
+  .pn-dropdown[data-open="true"] {
+    animation: none;
+  }
+}
+
+/* In the stacked mobile menu the active dot sits at the right edge of the pill. */
+.pn-stack .pn-dot {
+  left: auto;
+  right: 16px;
+  bottom: 50%;
+  margin: 0;
+  transform: translateY(50%) scale(0);
+}
+
+.pn-stack .pn-item[data-active="true"] .pn-dot {
+  transform: translateY(50%) scale(1);
+}
