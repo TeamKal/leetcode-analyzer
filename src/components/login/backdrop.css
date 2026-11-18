@@ -10,3 +10,38 @@
   mask-image: linear-gradient(to top, #000 18%, transparent 78%);
   opacity: 0.8;
 }
+
+/*
+ * The bottom-right corner wave. Anchored to the corner of the panel, it fades
+ * out toward the top-left so it melts into the white. It stays below the
+ * centred sign-in content: on phones it is a low swell that fits in the panel's
+ * bottom padding, and from tablet up its height is capped by the space left
+ * under the content (about 440px of content, centred in the viewport).
+ */
+.pb-corner-wave {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: min(72%, 280px);
+  height: 46px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 95% 95% at 100% 100%,
+    #000 40%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 95% 95% at 100% 100%,
+    #000 40%,
+    transparent 100%
+  );
+}
+
+@media (min-width: 768px) {
+  .pb-corner-wave {
+    width: min(92%, 340px);
+    height: auto;
+    aspect-ratio: 480 / 300;
+    max-height: clamp(46px, calc((100dvh - 440px) / 2), 400px);
+  }
+}

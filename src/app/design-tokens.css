@@ -12,7 +12,8 @@
  * When the last legacy page is gone, change `.ds` back to `:root`.
  *
  * Fonts: Geist (sans) and Geist Mono, loaded with next/font/google in layout.tsx
- * as --font-geist-sans / --font-geist-mono.
+ * as --font-geist-sans / --font-geist-mono. One exception: the sign-in page's
+ * outlined title uses Space Grotesk 700 (--font-title), used nowhere else.
  */
 
 .ds {

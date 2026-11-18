@@ -1,0 +1,88 @@
+/*
+ * Stroke title: outlined text, drawn in once, then filled. Each letter's outline
+ * is a dashed stroke whose dash is longer than the outline, so sliding the dash
+ * offset from "all gap" to zero draws the outline from its start to its end.
+ * Then a fill layer, clipped to a window that opens from the left, floods colour
+ * into the letters behind the outline. The final state is the finished, filled
+ * title; nothing runs afterwards.
+ */
+
+.st {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Space Grotesk (loaded in layout.tsx), falling back to the site's Geist. */
+  font-family: var(--font-title), var(--font-geist-sans), ui-sans-serif, system-ui,
+    sans-serif;
+}
+
+.st-svg {
+  display: block;
+  overflow: visible;
+}
+
+/* The outline. */
+.st-text {
+  font-family: inherit;
+  font-weight: 700;
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 14px rgba(169, 153, 232, 0.28));
+}
+
+.st-letter {
+  stroke-dasharray: 2400;
+  stroke-dashoffset: 2400;
+}
+
+/* Waiting for the welcome intro: nothing is drawn yet. */
+.st[data-state="waiting"] .st-letter {
+  stroke-dashoffset: 2400;
+}
+
+.st[data-state="drawing"] .st-letter {
+  animation: st-draw 1.5s cubic-bezier(0.55, 0.05, 0.25, 1) both;
+}
+
+/* Reduced motion: the finished outline, no animation. */
+.st[data-state="static"] .st-letter {
+  stroke-dashoffset: 0;
+}
+
+@keyframes st-draw {
+  from {
+    stroke-dashoffset: 2400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The fill layer: hidden until its turn, then a window opens from the left. The
+   negative insets leave room above and below the letters for the shadow. */
+.st-fill {
+  font-family: inherit;
+  font-weight: 700;
+  stroke: none;
+  clip-path: inset(-25% 100% -25% -3%);
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45));
+}
+
+/* Keep these timings in step with STROKE.fillDelayMs / fillSweepMs (stroke.ts). */
+.st[data-state="drawing"] .st-fill {
+  animation: st-wipe 1.6s cubic-bezier(0.4, 0, 0.2, 1) 1.5s both;
+}
+
+.st[data-state="static"] .st-fill {
+  clip-path: inset(-25% -3% -25% -3%);
+}
+
+@keyframes st-wipe {
+  from {
+    clip-path: inset(-25% 100% -25% -3%);
+  }
+  to {
+    clip-path: inset(-25% -3% -25% -3%);
+  }
+}

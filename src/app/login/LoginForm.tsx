@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import TechText from "@/components/login/TechText";
 import {
   AuthMascot,
   type MascotHandle,
@@ -13,8 +12,10 @@ import {
 import { MascotLife } from "@/components/login/mascot/MascotLife";
 import { WelcomeIntro } from "@/components/login/mascot/WelcomeIntro";
 import { FitToHeight } from "@/components/login/FitToHeight";
+import { LeftBackdrop } from "@/components/login/LeftBackdrop";
 import { ProductDemo } from "@/components/login/ProductDemo";
 import { RightPanelBackdrop } from "@/components/login/RightPanelBackdrop";
+import { StrokeTitle } from "@/components/login/StrokeTitle";
 import { Logo } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase/client";
@@ -89,38 +90,30 @@ export function LoginForm({ initialError, playIntro = false }: Props) {
         aria-labelledby="product-title"
         className="relative order-last flex flex-col overflow-hidden bg-[#09090b] px-6 py-12 text-white md:order-none md:h-screen md:px-10 md:py-8 lg:px-16 xl:px-20"
       >
-        {/* Product name: React Bits Tech Text, big, top left. It starts once the
-            welcome intro is over, so its own intro is seen. The box keeps its
-            size meanwhile (no layout shift). */}
-        {/* Same column as the demo; shifted left by the component's own 5% margin
-            so the letters line up with the demo's left edge. */}
-        <div className="relative mx-auto w-full max-w-[780px]">
+        <LeftBackdrop />
+        {/* Product name: outlined (stroke) text that draws itself in once, after
+            the welcome intro, centred at the top of the panel. The box has a
+            fixed height, so nothing shifts while it draws. */}
+        <div className="relative mx-auto w-full max-w-[900px]">
           <h1
             id="product-title"
             aria-label="Student Tracker"
-            className="relative -ml-[5%] -mt-2 h-[clamp(72px,min(8.5vw,10.5vh),130px)] w-[105%] shrink-0 text-white"
+            className="relative h-[clamp(76px,min(10vw,15vh),150px)] w-full shrink-0 text-white"
           >
-            {introDone && (
-              <div aria-hidden="true" className="h-full w-full">
-                <TechText
-                  text="Student Tracker"
-                  fontWeight={700}
-                  fontSize={160}
-                  align="left"
-                  color="#fafafa"
-                  accentColor="#ef3837"
-                  intro="type"
-                  introDuration={1.6}
-                  labels={false}
-                />
-              </div>
-            )}
+            <StrokeTitle text="Student Tracker" start={introDone} />
           </h1>
+          <p className="mt-2.5 text-center text-[14px] leading-6 text-zinc-400 md:truncate md:text-[15px]">
+            Explain your solution on camera. AI scores it, your mentor grades it.
+          </p>
         </div>
-        <div className="relative mx-auto flex min-h-0 w-full max-w-[780px] flex-1 flex-col pt-6 md:pt-2">
-          <FitToHeight>
-            <ProductDemo />
-          </FitToHeight>
+        {/* The demo supports the title: a narrower column, centred in the space
+            that is left, with room on every side. */}
+        <div className="relative mx-auto flex min-h-0 w-full max-w-[780px] flex-1 flex-col pt-7 md:pt-5">
+          <div className="mx-auto flex min-h-0 w-full max-w-[680px] flex-1 flex-col">
+            <FitToHeight>
+              <ProductDemo />
+            </FitToHeight>
+          </div>
         </div>
       </section>
 

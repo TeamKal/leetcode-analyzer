@@ -1,5 +1,6 @@
 "use client";
 
+import { CornerWave } from "@/components/login/CornerWave";
 import GradientWaves from "@/components/login/GradientWaves";
 import "./backdrop.css";
 
@@ -50,6 +51,8 @@ export function RightPanelBackdrop() {
     >
       {/* The waves hang from the top edge and melt into the white below. */}
       <Waves className="pb-waves-top top-0 h-[40%]" />
+      {/* A soft lavender wave settles into the bottom-right corner. */}
+      <CornerWave />
     </div>
   );
 }
