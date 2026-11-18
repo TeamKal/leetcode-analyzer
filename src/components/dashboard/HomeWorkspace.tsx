@@ -97,7 +97,7 @@ export function HomeWorkspace() {
     }
   }, [statesKey]);
 
-  // The review is done: a bigger celebration (the same one a click on it gives).
+  // The submission was accepted: a bigger celebration (the same one a click on it gives).
   useEffect(() => {
     if (tracker.phase !== "complete") return;
     mascotControl.current?.express("happy", 2600);

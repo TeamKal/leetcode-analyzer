@@ -1,29 +1,28 @@
 /**
- * What a student sees while a submission is processed. Pure logic, no imports:
- * the stage model, a reducer, and the friendly captions, so every state can be
+ * What a student sees while a submission is sent. Pure logic, no imports: the
+ * stage model, a reducer, and the friendly captions, so every state can be
  * tested and the screen only has to draw it.
  *
  * It only knows what the backend can really tell us:
  *  - saving: the upload to private storage reports a real percentage;
- *  - submitting: one request that returns when the submission is accepted (no
- *    progress detail, so it is shown as "working", never as a percentage);
- *  - AI review: the submission's status, read from the backend: queued,
- *    being reviewed, scored (or failed);
- *  - done: only once the backend says the review is scored.
+ *  - submitting: one request that returns once the video is saved, the
+ *    transcript is made and the submission is accepted (no progress detail, so
+ *    it is shown as "working", never as a percentage);
+ *  - done: as soon as that request succeeds. The AI review runs afterwards in
+ *    the background, so the student never waits for it.
  * Nothing here estimates a percentage or marks a stage done early.
  */
 
-export type StageId = "save" | "submit" | "review" | "done";
+export type StageId = "save" | "submit" | "done";
 export type StageState = "pending" | "active" | "done" | "failed";
 
 export const STAGES: readonly { id: StageId; label: string; hint: string }[] = [
   { id: "save", label: "Saving", hint: "Your recording" },
   { id: "submit", label: "Submitting", hint: "Your explanation" },
-  { id: "review", label: "AI review", hint: "Reading and scoring" },
-  { id: "done", label: "Done", hint: "All set" },
+  { id: "done", label: "Done", hint: "Submission successful" },
 ];
 
-/** What the backend says about a submission that is being reviewed. */
+/** What the backend says about a submission's review (used by the status route). */
 export type ReviewPhase = "queued" | "reviewing" | "scored" | "graded" | "failed";
 
 export function reviewPhaseFromStatus(status: unknown): ReviewPhase | null {
@@ -43,33 +42,12 @@ export function reviewPhaseFromStatus(status: unknown): ReviewPhase | null {
   }
 }
 
-/** Reads a review phase out of an API response, or null if it is anything else. */
-export function asReviewPhase(value: unknown): ReviewPhase | null {
-  return value === "queued" ||
-    value === "reviewing" ||
-    value === "scored" ||
-    value === "graded" ||
-    value === "failed"
-    ? value
-    : null;
-}
-
-export type TrackerPhase =
-  | "idle"
-  | "saving"
-  | "submitting"
-  | "reviewing"
-  | "complete"
-  | "failed";
+export type TrackerPhase = "idle" | "saving" | "submitting" | "complete" | "failed";
 
 export type Tracker = {
   phase: TrackerPhase;
   /** A real percentage from the upload, only while saving. */
   uploadPercent: number | null;
-  /** The backend's review status, only while reviewing. */
-  review: ReviewPhase | null;
-  /** True once the review has taken unusually long (the page stops promising). */
-  slow: boolean;
   failedAt: StageId | null;
   failureMessage: string;
 };
@@ -77,8 +55,6 @@ export type Tracker = {
 export const IDLE_TRACKER: Tracker = {
   phase: "idle",
   uploadPercent: null,
-  review: null,
-  slow: false,
   failedAt: null,
   failureMessage: "",
 };
@@ -88,13 +64,8 @@ export type TrackerEvent =
   | { type: "progress"; percent: number }
   | { type: "saved" }
   | { type: "submitted" }
-  | { type: "review"; phase: ReviewPhase }
-  | { type: "slow" }
   | { type: "fail"; at: StageId; message: string }
   | { type: "reset" };
-
-export const REVIEW_FAILED_MESSAGE =
-  "The AI could not score this one. Your mentor can still review your recording.";
 
 export function trackerReducer(tracker: Tracker, event: TrackerEvent): Tracker {
   switch (event.type) {
@@ -110,25 +81,9 @@ export function trackerReducer(tracker: Tracker, event: TrackerEvent): Tracker {
       if (tracker.phase !== "saving") return tracker;
       return { ...tracker, phase: "submitting", uploadPercent: null };
     case "submitted":
+      // The server has the video and the transcript and has queued the review.
       if (tracker.phase !== "submitting") return tracker;
-      return { ...tracker, phase: "reviewing", review: null };
-    case "review":
-      if (tracker.phase !== "reviewing") return tracker;
-      if (event.phase === "scored" || event.phase === "graded") {
-        return { ...tracker, phase: "complete", review: event.phase, slow: false };
-      }
-      if (event.phase === "failed") {
-        return {
-          ...tracker,
-          phase: "failed",
-          review: "failed",
-          failedAt: "review",
-          failureMessage: REVIEW_FAILED_MESSAGE,
-        };
-      }
-      return { ...tracker, review: event.phase };
-    case "slow":
-      return tracker.phase === "reviewing" ? { ...tracker, slow: true } : tracker;
+      return { ...tracker, phase: "complete" };
     case "fail":
       return {
         ...tracker,
@@ -143,9 +98,7 @@ export function trackerReducer(tracker: Tracker, event: TrackerEvent): Tracker {
 }
 
 export const isBusy = (tracker: Tracker) =>
-  tracker.phase === "saving" ||
-  tracker.phase === "submitting" ||
-  tracker.phase === "reviewing";
+  tracker.phase === "saving" || tracker.phase === "submitting";
 
 /** Whether the submit button may start a new run. */
 export function canStart(
@@ -175,8 +128,6 @@ export function stageViews(tracker: Tracker): StageView[] {
         return 0;
       case "submitting":
         return 1;
-      case "reviewing":
-        return 2;
       case "complete":
         return order.length; // everything is done
       case "failed":
@@ -210,25 +161,9 @@ export function captionFor(tracker: Tracker): string {
         : `Saving your recording… ${tracker.uploadPercent}%`;
     case "submitting":
       return "Submitting your explanation. This can take up to a minute.";
-    case "reviewing":
-      if (tracker.slow) {
-        return "This is taking longer than usual. You can leave this page; your submission is safe and the result will appear in Submissions.";
-      }
-      if (tracker.review === "queued") {
-        return "Received. Your explanation is waiting for its AI review.";
-      }
-      if (tracker.review === "reviewing") {
-        return "Received. The AI is reading your explanation.";
-      }
-      return "Received. Waiting for the AI review to start.";
     case "complete":
-      return "Your submission is in and the AI review is done.";
+      return "Submission successful.";
     case "failed":
       return tracker.failureMessage || "Something went wrong. Please try again.";
   }
 }
-
-/** How often to ask the backend about the review, and when to stop promising. */
-export const POLL_INTERVAL_MS = 4000;
-export const POLL_SLOW_AFTER_MS = 6 * 60 * 1000;
-export const POLL_GIVE_UP_AFTER_MS = 30 * 60 * 1000;
