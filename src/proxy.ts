@@ -20,6 +20,10 @@ function redirectWithAuthCookies(response: NextResponse, destination: URL) {
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  // The privacy policy is public: it must open without signing in.
+  if (pathname === "/privacy") {
+    return NextResponse.next({ request });
+  }
   if (
     pathname === "/api/cron/evaluation" ||
     pathname === "/api/cron/video-cleanup"

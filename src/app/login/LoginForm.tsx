@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -179,7 +180,16 @@ export function LoginForm({ initialError, playIntro = false }: Props) {
             </Button>
           </div>
 
-        
+          <p className="mt-5 text-center text-xs leading-5 text-muted">
+            See how your information is used in our{" "}
+            <Link
+              href="/privacy"
+              className="font-medium text-ink-2 underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            >
+              privacy policy
+            </Link>
+            .
+          </p>
         </div>
       </section>
       {playIntro && (
