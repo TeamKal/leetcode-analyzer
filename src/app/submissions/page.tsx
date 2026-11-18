@@ -1,20 +1,21 @@
+import { redirect } from "next/navigation";
 import { signOut } from "@/app/actions";
+import { isPageLocked } from "@/lib/student/lockedPages";
 import { SubmissionsList } from "@/components/student/SubmissionsList";
 import { Alert } from "@/components/ui/Alert";
-import { AppHeader } from "@/components/ui/AppHeader";
+import { PillNav } from "@/components/dashboard/PillNav";
 import { requireStudentAccess } from "@/lib/student/access";
 import { listMySubmissions } from "@/lib/student/submissions";
 
 export default async function MySubmissionsPage() {
   const { studentId } = await requireStudentAccess();
+  // Locked for now: students go back Home. See lockedPages.ts to open it again.
+  if (isPageLocked("submissions")) redirect("/");
   const rows = await listMySubmissions(studentId);
 
   return (
     <div className="ds min-h-screen bg-page font-sans text-ink antialiased">
-      <AppHeader
-        signOutAction={signOut}
-        links={[{ href: "/", label: "Submit a solution" }]}
-      />
+      <PillNav active="submissions" signOutAction={signOut} />
       <main className="mx-auto w-full max-w-[760px] px-4 pb-20 pt-8 sm:px-6 sm:pt-12">
         <h1 className="text-[28px] font-semibold tracking-[-0.03em] sm:text-[34px]">
           My submissions

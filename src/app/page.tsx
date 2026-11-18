@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { SubmitWorkspace } from "@/components/submit/SubmitWorkspace";
+import { HomeWorkspace } from "@/components/dashboard/HomeWorkspace";
 import { getCurrentApplicationAccess } from "@/lib/supabase/authorization";
 import { createClient } from "@/lib/supabase/server";
 
@@ -12,5 +12,5 @@ export default async function Home() {
     if (access.role === "mentor") redirect("/mentor");
   }
 
-  return <SubmitWorkspace />;
+  return <HomeWorkspace />;
 }

@@ -1,0 +1,249 @@
+/*
+ * Dashboard effects: the background, the magnetic buttons and sparks, and the
+ * small pops. Everything here is transform / opacity only, and is switched off
+ * (or made still) when the person prefers reduced motion.
+ */
+
+/* Background -------------------------------------------------------------------- */
+
+.bd {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bd-field {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.bd-lilac {
+  top: -18%;
+  left: -10%;
+  width: 52vw;
+  height: 52vw;
+  max-width: 720px;
+  max-height: 720px;
+  background: #cfc5fa;
+  animation: bd-drift-a 26s ease-in-out infinite alternate;
+}
+
+.bd-violet {
+  top: 8%;
+  right: -14%;
+  width: 42vw;
+  height: 42vw;
+  max-width: 600px;
+  max-height: 600px;
+  background: #d9d0fb;
+  opacity: 0.45;
+  animation: bd-drift-b 32s ease-in-out infinite alternate;
+}
+
+.bd-rose {
+  bottom: -22%;
+  left: 22%;
+  width: 46vw;
+  height: 46vw;
+  max-width: 640px;
+  max-height: 640px;
+  background: #f7b4b0;
+  opacity: 0.3;
+  animation: bd-drift-c 38s ease-in-out infinite alternate;
+}
+
+@keyframes bd-drift-a {
+  to {
+    transform: translate3d(9vw, 7vh, 0) scale(1.08);
+  }
+}
+
+@keyframes bd-drift-b {
+  to {
+    transform: translate3d(-8vw, 10vh, 0) scale(0.94);
+  }
+}
+
+@keyframes bd-drift-c {
+  to {
+    transform: translate3d(7vw, -9vh, 0) scale(1.1);
+  }
+}
+
+.bd[data-paused="true"] .bd-field {
+  animation-play-state: paused;
+}
+
+/* A grid of dots: a faint layer that fades toward the bottom, and a brighter one
+   that only shows near the pointer. */
+.bd-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, #a999e8 1.2px, transparent 1.6px);
+  background-size: 26px 26px;
+  opacity: 0.32;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 70%);
+  mask-image: linear-gradient(to bottom, #000, transparent 70%);
+}
+
+.bd-dots-glow {
+  opacity: 0;
+  background-image: radial-gradient(circle, #5b4db8 1.5px, transparent 1.9px);
+  -webkit-mask-image: radial-gradient(
+    circle 170px at var(--px, 50%) var(--py, 30%),
+    #000,
+    transparent
+  );
+  mask-image: radial-gradient(circle 170px at var(--px, 50%) var(--py, 30%), #000, transparent);
+  transition: opacity 0.4s ease;
+}
+
+.bd[data-near="true"] .bd-dots-glow {
+  opacity: 0.55;
+}
+
+@media (pointer: coarse) {
+  .bd-dots-glow {
+    display: none;
+  }
+}
+
+/* Magnet and sparks ------------------------------------------------------------- */
+
+.mg {
+  position: relative;
+}
+
+.mg-inner {
+  transform: translate3d(var(--mx, 0px), var(--my, 0px), 0);
+  transition: transform 0.28s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.mg-sparks {
+  position: absolute;
+  z-index: 2;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.mg-sparks i {
+  position: absolute;
+  left: -1px;
+  top: -6px;
+  width: 2px;
+  height: 8px;
+  border-radius: 2px;
+  background: #a999e8;
+  transform-origin: 50% 6px;
+  animation: mg-spark 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+.mg-sparks i:nth-child(3n) {
+  background: #ef3837;
+}
+
+.mg-sparks i:nth-child(3n + 1) {
+  background: #cfc5fa;
+}
+
+@keyframes mg-spark {
+  from {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(2px) scaleY(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scaleY(1);
+  }
+}
+
+/* Buttons feel pressed ------------------------------------------------------------ */
+
+.dash button:not(:disabled):active {
+  transform: scale(0.975);
+}
+
+.dash button {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 0.16s;
+}
+
+/* The mascot stays hidden until its entrance has been set up (see
+   useMascotEntrance), so it never flashes in its corner first. */
+.mc-dock {
+  opacity: 0;
+}
+
+.mc-dock[data-ready="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-dock {
+    opacity: 1;
+  }
+}
+
+/* Small pops ------------------------------------------------------------------- */
+
+.chip-pop {
+  animation: chip-pop 0.32s cubic-bezier(0.3, 1.4, 0.4, 1) both;
+}
+
+@keyframes chip-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.92);
+  }
+}
+
+/* The heading catches the light once, on load. */
+.hd-shine {
+  background: linear-gradient(100deg, #141414 42%, #7a6bd6 50%, #141414 58%) 100% 0 / 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hd-shine 1.4s ease-out 0.5s 1 both;
+}
+
+@keyframes hd-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-field,
+  .mg-sparks i,
+  .chip-pop,
+  .hd-shine {
+    animation: none;
+  }
+
+  .hd-shine {
+    background: none;
+    color: var(--ink, #141414);
+  }
+
+  .mg-sparks {
+    display: none;
+  }
+
+  .mg-inner {
+    transform: none;
+    transition: none;
+  }
+
+  .dash button:not(:disabled):active {
+    transform: none;
+  }
+}

@@ -365,7 +365,7 @@ export async function POST(request: Request) {
         .slice(0, MAX_SUBMISSION_TRANSCRIPT_LENGTH);
     }
 
-    const { error } = await admin.rpc("finalize_submission", {
+    const { data: finalized, error } = await admin.rpc("finalize_submission", {
       p_student_id: studentAccess.studentId,
       p_problem_id: problemId,
       p_leetcode_submission_url: parsedUrl.href,
@@ -388,7 +388,17 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ submitted: true });
+    // The new submission's id, so the page can follow its progress. Only an id:
+    // nothing else about the submission is sent back.
+    const submissionId =
+      typeof finalized === "object" &&
+      finalized !== null &&
+      "submission_id" in finalized &&
+      typeof finalized.submission_id === "string"
+        ? finalized.submission_id
+        : null;
+
+    return NextResponse.json({ submitted: true, submissionId });
   } catch {
     return errorResponse(
       "submission_unavailable",
