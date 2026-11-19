@@ -13,21 +13,19 @@ const fakeClient = (byColumns) => ({
     }),
   }),
 });
-const FULL = "flag,enabled,heart_only";
-const row = (extra = {}) => ({ data: [{ flag: "ui_extras", enabled: true, heart_only: false, ...extra }], error: null });
+const FULL = "flag,heart";
+const row = (extra = {}) => ({ data: [{ flag: "ui_extras", heart: true, ...extra }], error: null });
 
-test("a row means on; the options pick off, heart-only or the full set", async () => {
-  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row() }), "u1", "ui_extras"), "full");
-  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ heart_only: true }) }), "u1", "ui_extras"), "heart");
-  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ enabled: false }) }), "u1", "ui_extras"), "off");
-  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ enabled: false, heart_only: true }) }), "u1", "ui_extras"), "off");
+test("a row means extras; the heart column decides if it plays by itself", async () => {
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row() }), "u1", "ui_extras"), "auto");
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ heart: false }) }), "u1", "ui_extras"), "manual");
   assert.equal(await checkMascotMode(fakeClient({ [FULL]: { data: [], error: null } }), "u1", "ui_extras"), "off");
   assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ flag: "other" }) }), "u1", "ui_extras"), "off");
 });
 
-test("before the option columns exist, a plain row still means the full set", async () => {
+test("before the heart column exists, a plain row still plays by itself", async () => {
   const old = { [FULL]: { data: null, error: { message: "column does not exist" } }, flag: { data: [{ flag: "ui_extras" }], error: null } };
-  assert.equal(await checkMascotMode(fakeClient(old), "u1", "ui_extras"), "full");
+  assert.equal(await checkMascotMode(fakeClient(old), "u1", "ui_extras"), "auto");
   const none = { ...old, flag: { data: [], error: null } };
   assert.equal(await checkMascotMode(fakeClient(none), "u1", "ui_extras"), "off");
 });

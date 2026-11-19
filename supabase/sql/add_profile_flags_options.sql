@@ -1,24 +1,27 @@
--- Two switches per account on the private flags table.
+-- One switch per account: does the mascot play its animations by itself?
 --
 -- REVIEW FIRST, then run in the Supabase SQL editor. Not run automatically.
--- Run AFTER add_profile_flags.sql. It is additive and safe to run twice: it only
--- adds two columns with defaults, so existing rows keep working exactly as now
--- (enabled, full set).
+-- Run AFTER add_profile_flags.sql. Additive and safe to run twice.
 --
---   enabled     true  = the account gets the extras, false = switched off
---               (the row stays, so it can be turned back on).
---   heart_only  true  = only the heart animation, false = the full set.
+--   heart  true  = the mascot plays by itself: it starts with the heart, then
+--                  goes on with the other animations.
+--          false = it never plays by itself. (It still answers a direct click or
+--                  a pointer resting on it.)
 --
--- The app reads these on the server. Until this file is run, the app treats every
--- existing row as enabled with the full set.
+-- Existing rows default to true, so nobody already added changes behaviour.
+-- It also removes the two earlier option columns (enabled, heart_only) if they
+-- were created; the app no longer reads them.
 
 begin;
 
 alter table public.profile_flags
-  add column if not exists enabled boolean not null default true,
-  add column if not exists heart_only boolean not null default false;
+  add column if not exists heart boolean not null default true;
 
--- Check: both columns exist.
+alter table public.profile_flags
+  drop column if exists enabled,
+  drop column if exists heart_only;
+
+-- Check: the heart column exists.
 select column_name, data_type, column_default
 from information_schema.columns
 where table_schema = 'public' and table_name = 'profile_flags'
