@@ -69,9 +69,9 @@ const wisp: Character = {
   face: {
     eyeL: { x: 82, y: 94 },
     eyeR: { x: 118, y: 94 },
-    eyeRx: 11,
-    eyeRy: 14,
-    pupilR: 6,
+    eyeRx: 12.5,
+    eyeRy: 16,
+    pupilR: 7,
     browY: 72,
     browHalf: 9,
     mouth: { x: 100, y: 120 },

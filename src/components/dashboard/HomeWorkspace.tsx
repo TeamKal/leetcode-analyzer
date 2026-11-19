@@ -9,6 +9,7 @@ import {
 } from "@/components/login/mascot/AuthMascot";
 import { useRecording } from "@/hooks/useRecording";
 import { useMascotEntrance } from "@/hooks/useMascotEntrance";
+import { useMascotExtras } from "@/hooks/useMascotExtras";
 import { useSubmissionTracker } from "@/hooks/useSubmissionTracker";
 import { clearLegacyWhisperCache } from "@/lib/legacyWhisperCache";
 import { checkSubmissionInput } from "@/lib/leetcode";
@@ -25,7 +26,7 @@ import { SubmitStep } from "./SubmitStep";
  * the explanation, submit and follow the real progress. All state lives here and
  * in two hooks (the recorder and the submission tracker).
  */
-export function HomeWorkspace() {
+export function HomeWorkspace({ extras: extrasAllowed = false }: { extras?: boolean }) {
   const [link, setLink] = useState("");
   const mascotRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLElement>(null);
@@ -37,6 +38,8 @@ export function HomeWorkspace() {
     mascotControl.current?.express("happy", 1400);
     mascotControl.current?.wiggle();
   });
+  const quietRef = useRef(false);
+  const { extras, play } = useMascotExtras(extrasAllowed, mascotControl, mascotRef, quietRef);
   const recording = useRecording();
   const { tracker, start, reset, canRetry } = useSubmissionTracker();
 
@@ -77,6 +80,9 @@ export function HomeWorkspace() {
   // The mascot reacts to what really happens on the page ---------------------
   const mood: MascotMood =
     tracker.phase === "failed" ? "error" : isBusy(tracker) ? "busy" : "idle";
+  useEffect(() => {
+    quietRef.current = tracker.phase === "failed" || isBusy(tracker);
+  }, [tracker]);
   const statesKey = states.join("|");
   const activeIndex = states.indexOf("active");
   const prevStatesKey = useRef(statesKey);
@@ -94,8 +100,9 @@ export function HomeWorkspace() {
       control.express("happy", 1400);
       control.bounce(190);
       control.wiggle();
+      window.setTimeout(() => play("wink"), 900);
     }
-  }, [statesKey]);
+  }, [statesKey, play]);
 
   // The submission was accepted: a bigger celebration (the same one a click on it gives).
   useEffect(() => {
@@ -141,6 +148,7 @@ export function HomeWorkspace() {
             areaRef={areaRef}
             controlRef={mascotControl}
             mood={introMood ?? mood}
+            extras={extras}
             className="w-full"
           />
         </div>

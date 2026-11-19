@@ -1,0 +1,104 @@
+/* Extra marks drawn over the mascot. Transform and opacity only. */
+
+.mx-blush {
+  opacity: 0;
+  animation: mx-blush var(--ms, 2000ms) ease-in-out both;
+}
+
+.mx-blush[data-deep="1"] {
+  animation-name: mx-blush-deep;
+}
+
+@keyframes mx-blush {
+  15%,
+  70% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes mx-blush-deep {
+  15%,
+  72% {
+    opacity: 0.62;
+  }
+}
+
+.mx-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: mx-spark 0.9s ease-out 0.25s both;
+}
+
+.mx-spark-b {
+  animation-delay: 0.5s;
+}
+
+@keyframes mx-spark {
+  0% {
+    opacity: 0;
+    scale: 0.2;
+  }
+  40% {
+    opacity: 1;
+    scale: 1.1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+/* The heart is drawn line first, then filled, then drifts up and fades. */
+.mx-heart {
+  opacity: 0;
+  animation: mx-heart-life var(--ms, 2800ms) ease-out both;
+}
+
+.mx-heart-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: mx-heart-draw 1.1s ease-in-out 0.3s forwards;
+}
+
+.mx-heart-fill {
+  opacity: 0;
+  animation: mx-heart-fill 0.5s ease-out 1.35s forwards;
+}
+
+@keyframes mx-heart-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes mx-heart-fill {
+  to {
+    opacity: 0.85;
+  }
+}
+
+@keyframes mx-heart-life {
+  8% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 1;
+    transform: translate(100px, -4px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(100px, -26px) scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-blush,
+  .mx-spark,
+  .mx-heart,
+  .mx-heart-line,
+  .mx-heart-fill {
+    animation: none;
+    opacity: 0;
+  }
+}
