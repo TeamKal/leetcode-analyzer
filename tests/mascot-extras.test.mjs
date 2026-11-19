@@ -1,34 +1,47 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkProfileFlag } from "../src/lib/flags/flagCheck.ts";
+import { checkMascotMode } from "../src/lib/flags/flagCheck.ts";
 import { EXTRA_DURATION, poseFor } from "../src/components/login/mascot/extras/poses.ts";
 
 // --- The server-side switch ----------------------------------------------------
 
-const fakeClient = (result) => ({
+/** A fake client. `byColumns` answers per select() column list, like the real table. */
+const fakeClient = (byColumns) => ({
   from: () => ({
-    select: () => ({
-      eq: () => ({ eq: () => ({ limit: async () => result }) }),
+    select: (columns) => ({
+      eq: () => ({ eq: () => ({ limit: async () => byColumns[columns] ?? { data: null, error: { message: "no" } } }) }),
     }),
   }),
 });
+const FULL = "flag,enabled,heart_only";
+const row = (extra = {}) => ({ data: [{ flag: "ui_extras", enabled: true, heart_only: false, ...extra }], error: null });
 
-test("an account is on only when the table says so for that exact flag", async () => {
-  assert.equal(await checkProfileFlag(fakeClient({ data: [{ flag: "ui_extras" }], error: null }), "u1", "ui_extras"), true);
-  assert.equal(await checkProfileFlag(fakeClient({ data: [], error: null }), "u1", "ui_extras"), false);
-  assert.equal(await checkProfileFlag(fakeClient({ data: [{ flag: "other" }], error: null }), "u1", "ui_extras"), false);
+test("a row means on; the options pick off, heart-only or the full set", async () => {
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row() }), "u1", "ui_extras"), "full");
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ heart_only: true }) }), "u1", "ui_extras"), "heart");
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ enabled: false }) }), "u1", "ui_extras"), "off");
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ enabled: false, heart_only: true }) }), "u1", "ui_extras"), "off");
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: { data: [], error: null } }), "u1", "ui_extras"), "off");
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: row({ flag: "other" }) }), "u1", "ui_extras"), "off");
 });
 
-test("it fails closed: no id, an error, odd data or a throw all mean off", async () => {
-  const on = fakeClient({ data: [{ flag: "ui_extras" }], error: null });
-  assert.equal(await checkProfileFlag(on, null, "ui_extras"), false);
-  assert.equal(await checkProfileFlag(on, "", "ui_extras"), false);
-  assert.equal(await checkProfileFlag(on, "u1", ""), false);
-  assert.equal(await checkProfileFlag(fakeClient({ data: [{ flag: "ui_extras" }], error: { message: "x" } }), "u1", "ui_extras"), false);
-  assert.equal(await checkProfileFlag(fakeClient({ data: null, error: null }), "u1", "ui_extras"), false);
-  assert.equal(await checkProfileFlag(fakeClient({ data: "yes", error: null }), "u1", "ui_extras"), false);
+test("before the option columns exist, a plain row still means the full set", async () => {
+  const old = { [FULL]: { data: null, error: { message: "column does not exist" } }, flag: { data: [{ flag: "ui_extras" }], error: null } };
+  assert.equal(await checkMascotMode(fakeClient(old), "u1", "ui_extras"), "full");
+  const none = { ...old, flag: { data: [], error: null } };
+  assert.equal(await checkMascotMode(fakeClient(none), "u1", "ui_extras"), "off");
+});
+
+test("it fails closed: no id, errors, odd data or a throw all mean off", async () => {
+  const on = fakeClient({ [FULL]: row() });
+  assert.equal(await checkMascotMode(on, null, "ui_extras"), "off");
+  assert.equal(await checkMascotMode(on, "", "ui_extras"), "off");
+  assert.equal(await checkMascotMode(on, "u1", ""), "off");
+  assert.equal(await checkMascotMode(fakeClient({}), "u1", "ui_extras"), "off"); // both reads error
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: { data: "yes", error: null } }), "u1", "ui_extras"), "off");
+  assert.equal(await checkMascotMode(fakeClient({ [FULL]: { data: null, error: null } }), "u1", "ui_extras"), "off");
   const throwing = { from: () => { throw new Error("boom"); } };
-  assert.equal(await checkProfileFlag(throwing, "u1", "ui_extras"), false);
+  assert.equal(await checkMascotMode(throwing, "u1", "ui_extras"), "off");
 });
 
 // --- The expressions -----------------------------------------------------------

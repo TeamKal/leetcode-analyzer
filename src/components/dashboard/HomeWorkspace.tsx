@@ -11,6 +11,7 @@ import { useRecording } from "@/hooks/useRecording";
 import { useMascotEntrance } from "@/hooks/useMascotEntrance";
 import { useMascotExtras } from "@/hooks/useMascotExtras";
 import { useSubmissionTracker } from "@/hooks/useSubmissionTracker";
+import type { MascotMode } from "@/lib/flags/flagCheck";
 import { clearLegacyWhisperCache } from "@/lib/legacyWhisperCache";
 import { checkSubmissionInput } from "@/lib/leetcode";
 import { canStart, isBusy } from "@/lib/submit/progress";
@@ -26,7 +27,7 @@ import { SubmitStep } from "./SubmitStep";
  * the explanation, submit and follow the real progress. All state lives here and
  * in two hooks (the recorder and the submission tracker).
  */
-export function HomeWorkspace({ extras: extrasAllowed = false }: { extras?: boolean }) {
+export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotMode }) {
   const [link, setLink] = useState("");
   const mascotRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLElement>(null);
@@ -39,7 +40,7 @@ export function HomeWorkspace({ extras: extrasAllowed = false }: { extras?: bool
     mascotControl.current?.wiggle();
   });
   const quietRef = useRef(false);
-  const { extras, play } = useMascotExtras(extrasAllowed, mascotControl, mascotRef, quietRef);
+  const { extras, play } = useMascotExtras(extrasMode, mascotControl, mascotRef, quietRef);
   const recording = useRecording();
   const { tracker, start, reset, canRetry } = useSubmissionTracker();
 
