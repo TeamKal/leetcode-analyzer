@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { MascotHandle } from "@/components/login/mascot/AuthMascot";
+import type { MascotMode } from "@/lib/flags/flagCheck";
 import type {
   ExtraName,
   MascotExtrasModule,
@@ -22,26 +23,30 @@ const IDLE_CHOICES: ExtraName[] = [
   "dreamy",
 ];
 // Gaps are measured from the END of one expression to the START of the next.
-const GAP_MIN_MS = 600;
-const GAP_SPREAD_MS = 1600;
+const GAP_MIN_MS = 5000;
+const GAP_SPREAD_MS = 10000; // so 5 to 15 seconds in all
+const HEART_ONLY: ExtraName[] = ["heart"];
 const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
 
 /**
- * Extra mascot expressions, for accounts the SERVER has allowed (`enabled` comes
+ * Extra mascot expressions, for accounts the SERVER has allowed (`mode` comes
  * from a server component; this hook never decides that itself). When it is
- * false nothing is downloaded or run and the mascot is exactly the normal one.
+ * "off" nothing is downloaded or run and the mascot is exactly the normal one.
  *
  * When it is true the expressions module is loaded on demand and a few gentle
  * triggers play them: after a click, after resting the pointer on the mascot,
- * and back to back while idle with only a short gap (mostly the heart). They never play while the tab is hidden or while
+ * and every 5 to 15 seconds while idle (mostly the heart). In "heart" mode the
+ * heart is the only expression that ever plays. They never play while the tab is hidden or while
  * a submission is running or has failed (`quietRef`), and they keep a cooldown.
  */
 export function useMascotExtras(
-  enabled: boolean,
+  mode: MascotMode,
   controlRef: RefObject<MascotHandle | null>,
   targetRef: RefObject<HTMLElement | null>,
   quietRef: RefObject<boolean>,
 ) {
+  const enabled = mode !== "off";
+  const heartOnly = mode === "heart";
   const [loaded, setLoaded] = useState<MascotExtrasModule | null>(null);
   const playRef = useRef<((name: ExtraName) => void) | null>(null);
 
@@ -95,6 +100,7 @@ export function useMascotExtras(
     };
     const onEnter = () => {
       window.clearTimeout(hoverTimer);
+      if (heartOnly) return; // heart-only accounts get nothing but the heart
       hoverTimer = window.setTimeout(() => run("shy"), 700);
     };
     const onLeave = () => window.clearTimeout(hoverTimer);
@@ -103,7 +109,7 @@ export function useMascotExtras(
     // standing there. The first one waits until the welcome flight has landed.
     const idle = (wait: number) => {
       later(() => {
-        const played = run(pick(IDLE_CHOICES));
+        const played = run(pick(heartOnly ? HEART_ONLY : IDLE_CHOICES));
         // Next one starts a short gap after this one ENDS (or soon, if skipped).
         idle(played ? played + GAP_MIN_MS + Math.random() * GAP_SPREAD_MS : 1500);
       }, wait);
@@ -123,7 +129,7 @@ export function useMascotExtras(
       target.removeEventListener("pointerenter", onEnter);
       target.removeEventListener("pointerleave", onLeave);
     };
-  }, [extras, controlRef, targetRef, quietRef]);
+  }, [extras, heartOnly, controlRef, targetRef, quietRef]);
 
   /** Plays one now (still respects hidden tab and quiet). A no-op when not allowed. */
   const play = useCallback((name: ExtraName) => {
