@@ -13,6 +13,7 @@
     "test:login": "node --experimental-strip-types --test tests/login-showcase.test.mjs",
     "test:deepgram": "node --experimental-strip-types --test tests/deepgram.test.mjs",
     "test:mascot": "node --experimental-strip-types --test tests/mascot-extras.test.mjs",
+    "test:overlay": "node --experimental-strip-types --test tests/overlay-lock.test.mjs",
     "lint": "eslint"
   },
   "dependencies": {

@@ -247,3 +247,40 @@
     transform: none;
   }
 }
+
+/* The success clip: a transparent video centred on the screen. While it is up
+   the overlay covers everything and takes every pointer event itself. */
+.sv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.sv-overlay[data-state="playing"],
+.sv-overlay[data-state="leaving"] {
+  visibility: visible;
+  pointer-events: auto;
+  cursor: default;
+  touch-action: none;
+}
+
+.sv-overlay[data-state="playing"] {
+  opacity: 1;
+}
+
+/* A portrait clip (9:16), kept inside the screen on any device. */
+.sv-video {
+  width: min(90vw, 44vh, 420px);
+  height: auto;
+  aspect-ratio: 9 / 16;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+}

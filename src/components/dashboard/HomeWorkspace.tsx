@@ -21,6 +21,7 @@ import { PillNav } from "./PillNav";
 import { RecordingStep } from "./RecordingStep";
 import { SubmissionStep } from "./SubmissionStep";
 import { SubmitStep } from "./SubmitStep";
+import { SuccessVideo } from "./SuccessVideo";
 
 /**
  * The student's home: three connected steps. Enter the submission link, record
@@ -33,6 +34,10 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
   const areaRef = useRef<HTMLElement>(null);
   const mascotControl = useRef<MascotHandle | null>(null);
   const [introMood, setIntroMood] = useState<MascotMood | null>(null);
+  // The success clip: played once per successful submission, and while it plays
+  // the page behind it is made inert (no clicks, focus or typing).
+  const [celebrated, setCelebrated] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   // On load it flies in from outside the window, then greets you.
   useMascotEntrance(mascotRef, setIntroMood, () => {
@@ -67,6 +72,7 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
 
   function another() {
     reset();
+    setCelebrated(false);
     setLink("");
     recording.retake();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -127,6 +133,13 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
   return (
     <div className="ds dash relative isolate min-h-screen bg-page font-sans text-ink antialiased">
       <DashboardBackdrop />
+      <SuccessVideo
+        preload={isBusy(tracker) || tracker.phase === "complete"}
+        play={tracker.phase === "complete" && !celebrated}
+        onFinish={() => setCelebrated(true)}
+        onBlockedChange={setBlocked}
+      />
+      <div className="contents" inert={blocked}>
       <PillNav active="home" signOutAction={signOut} />
 
       <main ref={areaRef} className="relative z-[1] mx-auto w-full max-w-[760px] px-4 pb-24 pt-6 sm:px-6 sm:pt-10">
@@ -196,6 +209,7 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
           </FlowStep>
         </ol>
       </main>
+      </div>
     </div>
   );
 }
