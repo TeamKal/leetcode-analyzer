@@ -14,6 +14,7 @@
     "test:deepgram": "node --experimental-strip-types --test tests/deepgram.test.mjs",
     "test:mascot": "node --experimental-strip-types --test tests/mascot-extras.test.mjs",
     "test:overlay": "node --experimental-strip-types --test tests/overlay-lock.test.mjs",
+    "test:rage": "node --experimental-strip-types --test tests/rapid-clicks.test.mjs",
     "lint": "eslint"
   },
   "dependencies": {

@@ -38,7 +38,8 @@ export type MascotExpression =
   | "happy"
   | "thinking"
   | "sleepy"
-  | "playful";
+  | "playful"
+  | "angry";
 
 /** Imperative controls used by the life controller (MascotLife). */
 export type MascotHandle = {
@@ -53,6 +54,8 @@ export type MascotHandle = {
   bounce(strength?: number): void;
   stretch(): void;
   wiggle(): void;
+  /** Makes the mouth follow a voice: 0 (closed) to 1 (wide). Pass null to stop. */
+  speak(level: number | null): void;
   /** Plays an extra expression. Does nothing unless the extras module is provided. */
   extra(name: ExtraName, ms?: number): void;
 };
@@ -108,6 +111,18 @@ function mouthPath(smile: number, open: number) {
   return `M ${-w} ${y} Q 0 ${top} ${w} ${y} Q 0 ${bottom} ${-w} ${y} Z`;
 }
 
+/** A colour a fraction of the way between two hex colours. */
+function mixHex(a: string, b: string, t: number) {
+  const parse = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [r1, g1, b1] = parse(a);
+  const [r2, g2, b2] = parse(b);
+  const ch = (x: number, y: number) =>
+    Math.round(x + (y - x) * t)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${ch(r1, r2)}${ch(g1, g2)}${ch(b1, b2)}`;
+}
+
 const BITS = [
   { dx: -58, dy: -44, rot: -220, color: "#ef3837", delay: 0 },
   { dx: -34, dy: -66, rot: 160, color: "#141414", delay: 30 },
@@ -134,6 +149,7 @@ export function AuthMascot({
   const moodRef = useRef<MascotMood>(mood);
   const wakeRef = useRef<(() => void) | null>(null);
   const [burst, setBurst] = useState(0);
+  const [angryView, setAngryView] = useState<{ key: number } | null>(null);
   const extrasRef = useRef<MascotExtrasModule | null>(extras);
   const [extraView, setExtraView] = useState<ExtraView | null>(null);
 
@@ -174,6 +190,8 @@ export function AuthMascot({
     const earL = part("ear-l");
     const earR = part("ear-r");
     const shadow = part("shadow") as SVGElement;
+    const angryLidL = part("angry-lid-l");
+    const angryLidR = part("angry-lid-r");
     const pivot = character.earPivot;
 
     const S = {
@@ -199,6 +217,7 @@ export function AuthMascot({
       lid: new Spring(180, 16),
       wink: new Spring(600, 40),
       skew: new Spring(200, 15),
+      angry: new Spring(220, 18),
     };
     const all = Object.values(S);
 
@@ -208,6 +227,9 @@ export function AuthMascot({
     let celebrateUntil = 0;
     let secondJump = true;
     let wander = { x: 0, y: 0 };
+    let shake = 0;
+    let angryId = 0;
+    let speaking: number | null = null;
     let raf = 0;
     let last = 0;
     let prevMood: MascotMood = moodRef.current;
@@ -226,7 +248,7 @@ export function AuthMascot({
       const rot = headX * 5 + S.lean.x * 6 + S.roll.x;
       body.setAttribute(
         "transform",
-        `translate(${headX * 4 + S.lean.x * 5 + S.sway.x} ${S.jump.x}) rotate(${rot} 100 168) translate(100 168) scale(${sx} ${sy}) translate(-100 -168)`,
+        `translate(${headX * 4 + S.lean.x * 5 + S.sway.x + shake} ${S.jump.x}) rotate(${rot} 100 168) translate(100 168) scale(${sx} ${sy}) translate(-100 -168)`,
       );
       face.setAttribute("transform", `translate(${headX * 7} ${headY * 5})`);
 
@@ -254,6 +276,15 @@ export function AuthMascot({
         "transform",
         `translate(${f.eyeR.x} ${f.browY - lift + S.skew.x * 3}) rotate(${tilt})`,
       );
+
+      // Angry eyelids: slanted lids drop over the eyes (hidden when not angry).
+      const angryA = clamp(S.angry.x, 0, 1);
+      const placeLid = (el: SVGElement | null, p: { x: number; y: number }) => {
+        el?.setAttribute("transform", `translate(${p.x} ${p.y - (1 - angryA) * 9})`);
+        el?.setAttribute("opacity", String(angryA));
+      };
+      placeLid(angryLidL, f.eyeL);
+      placeLid(angryLidR, f.eyeR);
 
       mouth.setAttribute("d", mouthPath(S.smile.x, S.open.x));
       mouth.setAttribute(
@@ -514,6 +545,28 @@ export function AuthMascot({
         crouch = 2.5 * curious;
       }
 
+      // Angry: wins over hover and celebration, so a furious mascot looks furious.
+      const angryNow = !reduced && act !== null && act.name === "angry" && now < act.until;
+      let angryT = 0;
+      if (angryNow && m !== "busy" && !intro) {
+        angryT = 1;
+        eye = 0.95;
+        pupil = 0.62;
+        open = 0.22;
+        smile = -1;
+        cheek = 1;
+        brow = 0;
+        tilt = 0;
+        ear = 18 + 10 * Math.sin(now / 38);
+        crouch = 0;
+        gtx = 0;
+        gty = 0.06;
+      }
+      // Talking: the mouth opens and closes with the voice level.
+      if (!reduced && speaking !== null) open = 0.1 + clamp(speaking, 0, 1) * 0.85;
+      shake = angryT ? Math.sin(now / 24) * 2.4 : 0;
+      S.angry.target = angryT;
+
       // Extra expressions (only when the module is provided): blended over the
       // normal look, never over sign-in states, the intro or a celebration.
       const extrasMod = extrasRef.current;
@@ -581,6 +634,8 @@ export function AuthMascot({
         !intro &&
         !actActive &&
         !lookActive &&
+        !angryNow &&
+        speaking === null &&
         !exNow;
       if (!settled && !reduced) raf = requestAnimationFrame(tick);
     };
@@ -721,6 +776,12 @@ export function AuthMascot({
           S.ear.kick(name === "shocked" ? 420 : 280);
         } else if (name === "happy" || name === "playful") {
           S.jump.kick(-90);
+        } else if (name === "angry") {
+          S.jump.kick(-70);
+          S.ear.kick(380);
+          const id = ++angryId;
+          setAngryView({ key: id });
+          later(() => setAngryView((cur) => (cur && cur.key === id ? null : cur)), ms + 40);
         }
         wake();
         later(wake, ms + 40);
@@ -779,6 +840,11 @@ export function AuthMascot({
         later(() => S.ear.kick(380), 360);
         wake();
       },
+      speak(level) {
+        if (reduced) return;
+        speaking = level;
+        wake();
+      },
       extra(name, ms) {
         const mod = extrasRef.current;
         if (reduced || !mod) return;
@@ -834,6 +900,7 @@ export function AuthMascot({
   const f = character.face;
   const p = character.palette;
   const hl = f.pupilR;
+  const lidColor = mixHex(character.gradient[0], character.gradient[1], 0.38);
 
   const eye = (side: "l" | "r") => (
     <g
@@ -913,11 +980,51 @@ export function AuthMascot({
                 />
               </g>
               {character.faceFront}
+              {(["l", "r"] as const).map((side) => {
+                const e = side === "l" ? f.eyeL : f.eyeR;
+                const sx = side === "l" ? 1 : -1;
+                const w = f.eyeRx + 4;
+                const top = -(f.eyeRy + 6);
+                const inner = -f.eyeRy * 0.1;
+                return (
+                  <g
+                    key={side}
+                    data-part={`angry-lid-${side}`}
+                    opacity="0"
+                    transform={`translate(${e.x} ${e.y})`}
+                  >
+                    <path
+                      d={`M ${-w * sx} ${top} L ${w * sx} ${top} L ${w * sx} ${inner} Z`}
+                      fill={lidColor}
+                    />
+                    <path
+                      d={`M ${-w * sx} ${top} L ${w * sx} ${inner}`}
+                      stroke={p.brow}
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                  </g>
+                );
+              })}
               {extras && extraView && <extras.FaceOverlay view={extraView} face={f} />}
             </g>
           </g>
         </g>
         {extras && extraView && <extras.FloatOverlay view={extraView} />}
+        {angryView && (
+          <g transform="translate(146 48)">
+            <g key={angryView.key} className="pm-vein">
+              <path
+                d="M -10 -4 C -4 -4 -4 -4 -4 -10 M 10 -4 C 4 -4 4 -4 4 -10 M -10 4 C -4 4 -4 4 -4 10 M 10 4 C 4 4 4 4 4 10"
+                stroke="#ef3837"
+                strokeWidth="3.4"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </g>
+          </g>
+        )}
       </svg>
 
       {burst > 0 && (
