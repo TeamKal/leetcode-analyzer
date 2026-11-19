@@ -12,6 +12,7 @@
     "test:submit": "node --experimental-strip-types --test tests/submit-flow.test.mjs tests/locked-pages.test.mjs",
     "test:login": "node --experimental-strip-types --test tests/login-showcase.test.mjs",
     "test:deepgram": "node --experimental-strip-types --test tests/deepgram.test.mjs",
+    "test:mascot": "node --experimental-strip-types --test tests/mascot-extras.test.mjs",
     "lint": "eslint"
   },
   "dependencies": {

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { DEFAULT_CHARACTER, type Character } from "./characters";
 import { Spring } from "./spring";
+import type { ExtraName, ExtraView, MascotExtrasModule } from "./extras/types";
 import "./mascot.css";
 
 /**
@@ -52,6 +53,8 @@ export type MascotHandle = {
   bounce(strength?: number): void;
   stretch(): void;
   wiggle(): void;
+  /** Plays an extra expression. Does nothing unless the extras module is provided. */
+  extra(name: ExtraName, ms?: number): void;
 };
 
 export type MascotMood =
@@ -72,6 +75,8 @@ type AuthMascotProps = {
   /** Receives the imperative handle (set while mounted). */
   controlRef?: RefObject<MascotHandle | null>;
   className?: string;
+  /** Optional extra expressions (loaded on demand). Without it nothing changes. */
+  extras?: MascotExtrasModule | null;
 };
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
@@ -121,6 +126,7 @@ export function AuthMascot({
   character = DEFAULT_CHARACTER,
   controlRef,
   className = "",
+  extras = null,
 }: AuthMascotProps) {
   const reduced = usePrefersReducedMotion();
   const gradientId = useId();
@@ -128,6 +134,13 @@ export function AuthMascot({
   const moodRef = useRef<MascotMood>(mood);
   const wakeRef = useRef<(() => void) | null>(null);
   const [burst, setBurst] = useState(0);
+  const extrasRef = useRef<MascotExtrasModule | null>(extras);
+  const [extraView, setExtraView] = useState<ExtraView | null>(null);
+
+  useEffect(() => {
+    extrasRef.current = extras;
+    if (!extras) setExtraView(null);
+  }, [extras]);
 
   useEffect(() => {
     moodRef.current = mood;
@@ -151,8 +164,10 @@ export function AuthMascot({
     const eyeR = part("eye-r") as SVGElement;
     const pupilL = part("pupil-l") as SVGElement;
     const pupilR = part("pupil-r") as SVGElement;
-    const browL = part("brow-l") as SVGElement;
-    const browR = part("brow-r") as SVGElement;
+    // The mascot has no eyebrows; the brow expression values are kept so the
+    // rest of the rig is unchanged, they are just not drawn.
+    const browL = part("brow-l");
+    const browR = part("brow-r");
     const mouth = part("mouth") as SVGElement;
     const cheekL = part("cheek-l") as SVGElement;
     const cheekR = part("cheek-r") as SVGElement;
@@ -198,6 +213,9 @@ export function AuthMascot({
     let prevMood: MascotMood = moodRef.current;
     let act: { name: MascotExpression; until: number } | null = null;
     let look: { x: number; y: number; until: number } | null = null;
+    let ex: { name: ExtraName; start: number; until: number; id: number } | null = null;
+    let exId = 0;
+    let exRoll = false;
 
     const render = () => {
       const sy0 = clamp(1 - S.jump.v * 0.0006, 0.88, 1.12);
@@ -228,11 +246,11 @@ export function AuthMascot({
 
       const lift = S.brow.x * 8;
       const tilt = S.tilt.x * 14;
-      browL.setAttribute(
+      browL?.setAttribute(
         "transform",
         `translate(${f.eyeL.x} ${f.browY - lift - S.skew.x * 5}) rotate(${-tilt - S.skew.x * 5})`,
       );
-      browR.setAttribute(
+      browR?.setAttribute(
         "transform",
         `translate(${f.eyeR.x} ${f.browY - lift + S.skew.x * 3}) rotate(${tilt})`,
       );
@@ -496,6 +514,39 @@ export function AuthMascot({
         crouch = 2.5 * curious;
       }
 
+      // Extra expressions (only when the module is provided): blended over the
+      // normal look, never over sign-in states, the intro or a celebration.
+      const extrasMod = extrasRef.current;
+      const exNow = !reduced && extrasMod && ex && now < ex.until ? ex : null;
+      if (exNow && extrasMod && !intro && !celebrating && m !== "busy" && m !== "error") {
+        const p = extrasMod.poseFor(exNow.name, now - exNow.start);
+        if (p) {
+          const k = p.env;
+          const mix = (cur: number, v: number | undefined) =>
+            v === undefined ? cur : lerp(cur, v, k);
+          eye = mix(eye, p.eye);
+          brow = mix(brow, p.brow);
+          tilt = mix(tilt, p.tilt);
+          open = mix(open, p.open);
+          smile = mix(smile, p.smile);
+          cheek = mix(cheek, p.cheek);
+          pupil = mix(pupil, p.pupil);
+          ear = mix(ear, p.ear);
+          wave = mix(wave, p.wave);
+          lidT = mix(lidT, p.lid);
+          winkT = mix(winkT, p.wink);
+          skewT = mix(skewT, p.skew);
+          crouch = mix(crouch, p.crouch);
+          gtx = mix(gtx, p.gx);
+          gty = mix(gty, p.gy);
+          S.roll.target = (p.roll ?? 0) * k;
+          exRoll = true;
+        }
+      } else if (exRoll) {
+        S.roll.target = 0;
+        exRoll = false;
+      }
+
       S.gx.target = gtx;
       S.gy.target = gty;
       S.inf.target = infTarget;
@@ -529,7 +580,8 @@ export function AuthMascot({
         !celebrating &&
         !intro &&
         !actActive &&
-        !lookActive;
+        !lookActive &&
+        !exNow;
       if (!settled && !reduced) raf = requestAnimationFrame(tick);
     };
 
@@ -727,6 +779,23 @@ export function AuthMascot({
         later(() => S.ear.kick(380), 360);
         wake();
       },
+      extra(name, ms) {
+        const mod = extrasRef.current;
+        if (reduced || !mod) return;
+        const start = performance.now();
+        const duration = ms ?? mod.durations[name];
+        const id = ++exId;
+        ex = { name, start, until: start + duration, id };
+        setExtraView({ name, key: id, ms: duration });
+        wake();
+        later(() => {
+          if (ex && ex.id === id) {
+            ex = null;
+            setExtraView(null);
+          }
+          wake();
+        }, duration + 40);
+      },
     };
     if (controlRef) controlRef.current = handle;
 
@@ -776,20 +845,6 @@ export function AuthMascot({
         <circle r={f.pupilR} fill={p.pupil} />
         <circle cx={hl * 0.35} cy={-hl * 0.4} r={hl * 0.3} fill="#ffffff" />
       </g>
-    </g>
-  );
-
-  const brow = (side: "l" | "r") => (
-    <g
-      data-part={`brow-${side}`}
-      transform={`translate(${side === "l" ? f.eyeL.x : f.eyeR.x} ${f.browY})`}
-    >
-      <path
-        d={`M ${-f.browHalf} 0 L ${f.browHalf} 0`}
-        stroke={p.brow}
-        strokeWidth="5"
-        strokeLinecap="round"
-      />
     </g>
   );
 
@@ -846,8 +901,6 @@ export function AuthMascot({
               />
               {eye("l")}
               {eye("r")}
-              {brow("l")}
-              {brow("r")}
               <g transform={`translate(${f.mouth.x} ${f.mouth.y})`}>
                 <path
                   data-part="mouth"
@@ -860,9 +913,11 @@ export function AuthMascot({
                 />
               </g>
               {character.faceFront}
+              {extras && extraView && <extras.FaceOverlay view={extraView} face={f} />}
             </g>
           </g>
         </g>
+        {extras && extraView && <extras.FloatOverlay view={extraView} />}
       </svg>
 
       {burst > 0 && (

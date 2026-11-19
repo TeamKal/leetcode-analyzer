@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { HomeWorkspace } from "@/components/dashboard/HomeWorkspace";
 import { getCurrentApplicationAccess } from "@/lib/supabase/authorization";
+import { hasProfileFlag } from "@/lib/flags/profileFlags";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -12,5 +13,12 @@ export default async function Home() {
     if (access.role === "mentor") redirect("/mentor");
   }
 
-  return <HomeWorkspace />;
+  // Decided here, on the server, from the signed-in account. Only this yes/no
+  // reaches the browser.
+  const extras =
+    access.status === "allowed" && access.role === "student"
+      ? await hasProfileFlag(access.user.id, "ui_extras")
+      : false;
+
+  return <HomeWorkspace extras={extras} />;
 }
