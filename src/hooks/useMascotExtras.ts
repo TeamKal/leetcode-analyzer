@@ -21,9 +21,9 @@ const IDLE_CHOICES: ExtraName[] = [
   "starry",
   "dreamy",
 ];
-const COOLDOWN_MS = 1200;
-const IDLE_MIN_MS = 2200;
-const IDLE_SPREAD_MS = 2800;
+// Gaps are measured from the END of one expression to the START of the next.
+const GAP_MIN_MS = 600;
+const GAP_SPREAD_MS = 1600;
 const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
 
 /**
@@ -33,7 +33,7 @@ const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]
  *
  * When it is true the expressions module is loaded on demand and a few gentle
  * triggers play them: after a click, after resting the pointer on the mascot,
- * and every few seconds while idle (mostly the heart). They never play while the tab is hidden or while
+ * and back to back while idle with only a short gap (mostly the heart). They never play while the tab is hidden or while
  * a submission is running or has failed (`quietRef`), and they keep a cooldown.
  */
 export function useMascotExtras(
@@ -74,15 +74,18 @@ export function useMascotExtras(
       timers.add(id);
       return id;
     };
-    let lastAt = 0;
+    let busyUntil = 0;
     let hoverTimer = 0;
 
+    /** Plays one; returns how long it lasts, or 0 if it did not play. */
     const run = (name: ExtraName, force = false) => {
-      if (document.hidden || quietRef.current) return;
+      if (document.hidden || quietRef.current) return 0;
       const now = performance.now();
-      if (!force && now - lastAt < COOLDOWN_MS) return;
-      lastAt = now;
-      controlRef.current?.extra(name);
+      if (!force && now < busyUntil + GAP_MIN_MS) return 0;
+      const ms = extras.durations[name];
+      busyUntil = now + ms;
+      controlRef.current?.extra(name, ms);
+      return ms;
     };
     playRef.current = (name) => run(name, true);
 
@@ -96,15 +99,16 @@ export function useMascotExtras(
     };
     const onLeave = () => window.clearTimeout(hoverTimer);
 
-    // Every few seconds, so the mascot is never just standing there. The first
-    // one waits until the welcome flight has landed.
-    const idle = (extra = 0) => {
+    // Back to back with only a short breather, so the mascot is never just
+    // standing there. The first one waits until the welcome flight has landed.
+    const idle = (wait: number) => {
       later(() => {
-        run(pick(IDLE_CHOICES));
-        idle();
-      }, extra + IDLE_MIN_MS + Math.random() * IDLE_SPREAD_MS);
+        const played = run(pick(IDLE_CHOICES));
+        // Next one starts a short gap after this one ENDS (or soon, if skipped).
+        idle(played ? played + GAP_MIN_MS + Math.random() * GAP_SPREAD_MS : 1500);
+      }, wait);
     };
-    idle(1500);
+    idle(3500);
 
     target.addEventListener("click", onClick);
     target.addEventListener("pointerenter", onEnter);
