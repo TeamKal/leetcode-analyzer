@@ -8,20 +8,9 @@ import type {
   MascotExtrasModule,
 } from "@/components/login/mascot/extras/types";
 
-// The heart is the signature move, so it comes up most; the rest keep it fresh.
-const IDLE_CHOICES: ExtraName[] = [
-  "heart",
-  "heart",
-  "heart",
-  "heart",
-  "wink",
-  "wink",
-  "shy",
-  "blush",
-  "giggle",
-  "starry",
-  "dreamy",
-];
+// The heart is the signature move: it plays first and then every other time.
+// These are the ones in between, chosen at random.
+const IDLE_CHOICES: ExtraName[] = ["wink", "wink", "shy", "blush", "giggle", "starry", "dreamy"];
 // Gaps are measured from the END of one expression to the START of the next.
 const GAP_MIN_MS = 5000;
 const GAP_SPREAD_MS = 10000; // so 5 to 15 seconds in all
@@ -35,8 +24,7 @@ const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]
  * When it is true the expressions module is loaded on demand and a few gentle
  * triggers play them: after a click, after resting the pointer on the mascot,
  * and, only in "auto" mode, every 5 to 15 seconds while idle. The first
- * one is always the heart, then it carries on with the others (mostly the
- * heart). In "manual" mode nothing ever plays by itself. They never play while the tab is hidden or while
+ * one is always the heart, then it alternates: the heart, another, the heart... In "manual" mode nothing ever plays by itself. They never play while the tab is hidden or while
  * a submission is running or has failed (`quietRef`), and they keep a cooldown.
  */
 export function useMascotExtras(
@@ -107,11 +95,11 @@ export function useMascotExtras(
 
     // Back to back with only a short breather, so the mascot is never just
     // standing there. The first one waits until the welcome flight has landed.
-    let first = true; // the very first one is always the heart
+    let count = 0; // 0, 2, 4... are always the heart
     const idle = (wait: number) => {
       later(() => {
-        const played = run(first ? "heart" : pick(IDLE_CHOICES));
-        first = false;
+        const played = run(count % 2 === 0 ? "heart" : pick(IDLE_CHOICES));
+        if (played) count += 1;
         // Next one starts a short gap after this one ENDS (or soon, if skipped).
         idle(played ? played + GAP_MIN_MS + Math.random() * GAP_SPREAD_MS : 1500);
       }, wait);
