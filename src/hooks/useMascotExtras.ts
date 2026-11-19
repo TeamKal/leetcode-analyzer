@@ -7,8 +7,23 @@ import type {
   MascotExtrasModule,
 } from "@/components/login/mascot/extras/types";
 
-const IDLE_CHOICES: ExtraName[] = ["wink", "shy", "blush", "giggle", "dreamy", "starry"];
-const COOLDOWN_MS = 9000;
+// The heart is the signature move, so it comes up most; the rest keep it fresh.
+const IDLE_CHOICES: ExtraName[] = [
+  "heart",
+  "heart",
+  "heart",
+  "heart",
+  "wink",
+  "wink",
+  "shy",
+  "blush",
+  "giggle",
+  "starry",
+  "dreamy",
+];
+const COOLDOWN_MS = 1200;
+const IDLE_MIN_MS = 2200;
+const IDLE_SPREAD_MS = 2800;
 const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
 
 /**
@@ -18,7 +33,7 @@ const pick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]
  *
  * When it is true the expressions module is loaded on demand and a few gentle
  * triggers play them: after a click, after resting the pointer on the mascot,
- * and now and then while idle. They never play while the tab is hidden or while
+ * and every few seconds while idle (mostly the heart). They never play while the tab is hidden or while
  * a submission is running or has failed (`quietRef`), and they keep a cooldown.
  */
 export function useMascotExtras(
@@ -72,22 +87,24 @@ export function useMascotExtras(
     playRef.current = (name) => run(name, true);
 
     const onClick = () => {
-      // After the normal celebration has finished.
-      later(() => run(Math.random() < 0.6 ? "heart" : "starry"), 1700);
+      // Right after the normal celebration (1.5 s) has finished.
+      later(() => run("heart", true), 1550);
     };
     const onEnter = () => {
       window.clearTimeout(hoverTimer);
-      hoverTimer = window.setTimeout(() => run("shy"), 1500);
+      hoverTimer = window.setTimeout(() => run("shy"), 700);
     };
     const onLeave = () => window.clearTimeout(hoverTimer);
 
-    const idle = () => {
+    // Every few seconds, so the mascot is never just standing there. The first
+    // one waits until the welcome flight has landed.
+    const idle = (extra = 0) => {
       later(() => {
         run(pick(IDLE_CHOICES));
         idle();
-      }, 26000 + Math.random() * 30000);
+      }, extra + IDLE_MIN_MS + Math.random() * IDLE_SPREAD_MS);
     };
-    idle();
+    idle(1500);
 
     target.addEventListener("click", onClick);
     target.addEventListener("pointerenter", onEnter);

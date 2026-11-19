@@ -100,7 +100,7 @@ export function HomeWorkspace({ extras: extrasAllowed = false }: { extras?: bool
       control.express("happy", 1400);
       control.bounce(190);
       control.wiggle();
-      window.setTimeout(() => play("wink"), 900);
+      window.setTimeout(() => play("heart"), 500);
     }
   }, [statesKey, play]);
 
