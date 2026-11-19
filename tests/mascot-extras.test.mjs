@@ -73,6 +73,6 @@ test("the wink closes one eye, the shy look turns away, the heart traces with an
   assert.ok(wink.wink > 0.9 && wink.smile === 1);
   const shy = poseFor("shy", 900);
   assert.ok(shy.gx < -0.5 && shy.cheek === 1);
-  const heart = poseFor("heart", 700);
+  const heart = poseFor("heart", 350);
   assert.ok(Math.abs(heart.wave) > 5 && heart.ear > 10);
 });
