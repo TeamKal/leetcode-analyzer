@@ -8,13 +8,13 @@ import type { ExtraName, ExtraPose } from "./types";
  */
 
 export const EXTRA_DURATION: Record<ExtraName, number> = {
-  wink: 1000,
-  shy: 2200,
-  blush: 1800,
-  heart: 1600,
-  starry: 1600,
-  giggle: 1500,
-  dreamy: 2200,
+  wink: 1400,
+  shy: 3000,
+  blush: 2400,
+  heart: 2800,
+  starry: 2200,
+  giggle: 1900,
+  dreamy: 2800,
 };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -35,8 +35,8 @@ export function poseFor(name: ExtraName, t: number): ExtraPose | null {
   switch (name) {
     case "wink": {
       // A quick, warm wink with a little head tilt and a smile.
-      const env = envelope(t, d, 160, 280);
-      const closed = ramp(t, 170, 280) * (1 - ramp(t, 600, 760));
+      const env = envelope(t, d, 220, 380);
+      const closed = ramp(t, 240, 380) * (1 - ramp(t, 820, 1000));
       return {
         env,
         eye: 1.05,
@@ -54,9 +54,9 @@ export function poseFor(name: ExtraName, t: number): ExtraPose | null {
     }
     case "shy": {
       // Looks away and down, cheeks warm up, then peeks back for a moment.
-      const env = envelope(t, d, 250, 450);
-      const away = ramp(t, 0, 300) * (1 - ramp(t, 1250, 1600) * 0.85);
-      const peek = ramp(t, 1300, 1600) * (1 - ramp(t, 1700, 2050));
+      const env = envelope(t, d, 300, 600);
+      const away = ramp(t, 0, 380) * (1 - ramp(t, 1700, 2150) * 0.85);
+      const peek = ramp(t, 1750, 2150) * (1 - ramp(t, 2350, 2750));
       return {
         env,
         eye: 0.97,
@@ -74,7 +74,7 @@ export function poseFor(name: ExtraName, t: number): ExtraPose | null {
     }
     case "blush": {
       // Embarrassed: eyes down and to the side, a small smile, red cheeks.
-      const env = envelope(t, d, 240, 500);
+      const env = envelope(t, d, 320, 700);
       return {
         env,
         eye: 0.97,
@@ -91,10 +91,10 @@ export function poseFor(name: ExtraName, t: number): ExtraPose | null {
       };
     }
     case "heart": {
-      // Both arms reach up; the right one traces a heart quickly while it looks up at it.
-      const env = envelope(t, d, 140, 380);
-      const tracing = ramp(t, 120, 220) * (1 - ramp(t, 760, 860));
-      const phase = ((t - 120) / 680) * Math.PI * 2;
+      // Both arms reach up; the right one traces a heart while it looks up at it.
+      const env = envelope(t, d, 260, 700);
+      const tracing = ramp(t, 300, 420) * (1 - ramp(t, 1400, 1550));
+      const phase = ((t - 300) / 1100) * Math.PI * 2;
       return {
         env,
         eye: 1.1,
@@ -112,7 +112,7 @@ export function poseFor(name: ExtraName, t: number): ExtraPose | null {
     }
     case "starry": {
       // Wide, glossy eyes: the "oh, that's lovely" look.
-      const env = envelope(t, d, 200, 450);
+      const env = envelope(t, d, 280, 650);
       return {
         env,
         eye: 1.3,
@@ -129,7 +129,7 @@ export function poseFor(name: ExtraName, t: number): ExtraPose | null {
     }
     case "giggle": {
       // Squinty happy eyes, a bouncing laugh.
-      const env = envelope(t, d, 140, 350);
+      const env = envelope(t, d, 180, 450);
       return {
         env,
         lid: 0.55,
@@ -146,7 +146,7 @@ export function poseFor(name: ExtraName, t: number): ExtraPose | null {
     }
     case "dreamy": {
       // Drifting off: heavy lids, a soft smile, a slow sway.
-      const env = envelope(t, d, 350, 600);
+      const env = envelope(t, d, 500, 800);
       return {
         env,
         lid: 0.55,
