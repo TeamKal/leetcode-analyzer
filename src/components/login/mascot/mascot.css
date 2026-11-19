@@ -58,3 +58,30 @@
     display: none;
   }
 }
+
+/* The anger mark that pops up beside the head. */
+.pm-vein {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pm-vein-in 0.32s cubic-bezier(0.3, 1.6, 0.4, 1) both,
+    pm-vein-pulse 0.5s ease-in-out 0.32s infinite;
+}
+
+@keyframes pm-vein-in {
+  from {
+    opacity: 0;
+    transform: scale(0.2) rotate(-20deg);
+  }
+}
+
+@keyframes pm-vein-pulse {
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-vein {
+    animation: none;
+  }
+}

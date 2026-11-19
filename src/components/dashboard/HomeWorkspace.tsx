@@ -20,6 +20,7 @@ import { FlowStep, type FlowStepState } from "./FlowStep";
 import { PillNav } from "./PillNav";
 import { RecordingStep } from "./RecordingStep";
 import { SubmissionStep } from "./SubmissionStep";
+import { MascotRage } from "./MascotRage";
 import { SubmitStep } from "./SubmitStep";
 import { SuccessVideo } from "./SuccessVideo";
 
@@ -38,6 +39,7 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
   // the page behind it is made inert (no clicks, focus or typing).
   const [celebrated, setCelebrated] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [rageActive, setRageActive] = useState(false);
 
   // On load it flies in from outside the window, then greets you.
   useMascotEntrance(mascotRef, setIntroMood, () => {
@@ -88,8 +90,8 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
   const mood: MascotMood =
     tracker.phase === "failed" ? "error" : isBusy(tracker) ? "busy" : "idle";
   useEffect(() => {
-    quietRef.current = tracker.phase === "failed" || isBusy(tracker);
-  }, [tracker]);
+    quietRef.current = tracker.phase === "failed" || isBusy(tracker) || rageActive;
+  }, [tracker, rageActive]);
   const statesKey = states.join("|");
   const activeIndex = states.indexOf("active");
   const prevStatesKey = useRef(statesKey);
@@ -164,6 +166,12 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
             mood={introMood ?? mood}
             extras={extras}
             className="w-full"
+          />
+          <MascotRage
+            targetRef={mascotRef}
+            controlRef={mascotControl}
+            onMood={setIntroMood}
+            onActiveChange={setRageActive}
           />
         </div>
 
