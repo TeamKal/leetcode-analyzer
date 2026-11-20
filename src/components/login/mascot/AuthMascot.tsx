@@ -39,7 +39,8 @@ export type MascotExpression =
   | "thinking"
   | "sleepy"
   | "playful"
-  | "angry";
+  | "angry"
+  | "evil";
 
 /** Imperative controls used by the life controller (MascotLife). */
 export type MascotHandle = {
@@ -80,6 +81,8 @@ type AuthMascotProps = {
   className?: string;
   /** Optional extra expressions (loaded on demand). Without it nothing changes. */
   extras?: MascotExtrasModule | null;
+  /** A speech bubble above the head. Without it nothing is drawn. */
+  speech?: { text: string; key: number } | null;
 };
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
@@ -102,13 +105,16 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /** Mouth outline for a given smile (-1..1) and openness (0..1). */
-function mouthPath(smile: number, open: number) {
+function mouthPath(smile: number, open: number, tilt = 0) {
   const w = 13 + open * 5;
-  if (open < 0.06) return `M ${-w} 0 Q 0 ${smile * 16} ${w} 0`;
+  // A smirk lifts the right corner and drops the left one a little.
+  const yl = tilt * 1.5;
+  const yr = -tilt * 3;
+  if (open < 0.06) return `M ${-w} ${yl} Q 0 ${smile * 16} ${w} ${yr}`;
   const y = -open * 1.5;
   const top = smile * 8 + 2;
   const bottom = (3 + open * 20) * 2 + smile * 6;
-  return `M ${-w} ${y} Q 0 ${top} ${w} ${y} Q 0 ${bottom} ${-w} ${y} Z`;
+  return `M ${-w} ${y + yl} Q 0 ${top} ${w} ${y + yr} Q 0 ${bottom} ${-w} ${y + yl} Z`;
 }
 
 /** A colour a fraction of the way between two hex colours. */
@@ -142,6 +148,7 @@ export function AuthMascot({
   controlRef,
   className = "",
   extras = null,
+  speech = null,
 }: AuthMascotProps) {
   const reduced = usePrefersReducedMotion();
   const gradientId = useId();
@@ -150,6 +157,19 @@ export function AuthMascot({
   const wakeRef = useRef<(() => void) | null>(null);
   const [burst, setBurst] = useState(0);
   const [angryView, setAngryView] = useState<{ key: number } | null>(null);
+  // The speech bubble stays mounted for a moment after it is asked to go, so it
+  // can animate out.
+  const [bubble, setBubble] = useState<{ text: string; key: number; leaving: boolean } | null>(null);
+
+  useEffect(() => {
+    if (speech) {
+      setBubble({ ...speech, leaving: false });
+      return;
+    }
+    setBubble((current) => (current ? { ...current, leaving: true } : current));
+    const timer = window.setTimeout(() => setBubble(null), 260);
+    return () => window.clearTimeout(timer);
+  }, [speech]);
   const extrasRef = useRef<MascotExtrasModule | null>(extras);
   const [extraView, setExtraView] = useState<ExtraView | null>(null);
 
@@ -218,6 +238,7 @@ export function AuthMascot({
       wink: new Spring(600, 40),
       skew: new Spring(200, 15),
       angry: new Spring(220, 18),
+      smirk: new Spring(170, 14),
     };
     const all = Object.values(S);
 
@@ -281,12 +302,12 @@ export function AuthMascot({
       const angryA = clamp(S.angry.x, 0, 1);
       const placeLid = (el: SVGElement | null, p: { x: number; y: number }) => {
         el?.setAttribute("transform", `translate(${p.x} ${p.y - (1 - angryA) * 9})`);
-        el?.setAttribute("opacity", String(angryA));
+        el?.setAttribute("opacity", String(Math.min(1, angryA * 2)));
       };
       placeLid(angryLidL, f.eyeL);
       placeLid(angryLidR, f.eyeR);
 
-      mouth.setAttribute("d", mouthPath(S.smile.x, S.open.x));
+      mouth.setAttribute("d", mouthPath(S.smile.x, S.open.x, S.smirk.x));
       mouth.setAttribute(
         "fill",
         S.open.x > 0.06 ? character.palette.mouthFill : "none",
@@ -414,6 +435,7 @@ export function AuthMascot({
       let lidT = 0;
       let winkT = 0;
       let skewT = 0;
+      let evilT = 0;
 
       if (m === "error") {
         eye = 1.05;
@@ -533,6 +555,20 @@ export function AuthMascot({
             winkT = 1;
             ear = 8;
             break;
+          case "evil":
+            // Sly and scheming: eyes narrowed and darting, a wide smirk, a snicker.
+            eye = 1;
+            brow = 0.2;
+            open = 0.3;
+            smile = 1;
+            cheek = 0.9;
+            pupil = 0.75;
+            lidT = 0.2;
+            evilT = 1;
+            ear = 8 + 6 * Math.sin(now / 85);
+            gtx = 0.7 * Math.sin(now / 480);
+            gty = 0.05;
+            break;
         }
       } else if (curious > 0.01) {
         eye = lerp(eye, 1.28, curious);
@@ -565,7 +601,8 @@ export function AuthMascot({
       // Talking: the mouth opens and closes with the voice level.
       if (!reduced && speaking !== null) open = 0.1 + clamp(speaking, 0, 1) * 0.85;
       shake = angryT ? Math.sin(now / 24) * 2.4 : 0;
-      S.angry.target = angryT;
+      S.angry.target = Math.max(angryT, evilT * 0.8);
+      S.smirk.target = evilT;
 
       // Extra expressions (only when the module is provided): blended over the
       // normal look, never over sign-in states, the intro or a celebration.
@@ -776,6 +813,9 @@ export function AuthMascot({
           S.ear.kick(name === "shocked" ? 420 : 280);
         } else if (name === "happy" || name === "playful") {
           S.jump.kick(-90);
+        } else if (name === "evil") {
+          S.jump.kick(-60);
+          S.ear.kick(300);
         } else if (name === "angry") {
           S.jump.kick(-70);
           S.ear.kick(380);
@@ -916,15 +956,13 @@ export function AuthMascot({
   );
 
   return (
-    <div
-      aria-hidden="true"
-      className={`pointer-events-none relative select-none ${className}`}
-    >
+    <div className={`pointer-events-none relative select-none ${className}`}>
       <svg
         ref={svgRef}
         viewBox="0 0 200 190"
         className="block h-auto w-full overflow-visible"
         focusable="false"
+        aria-hidden="true"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -1045,6 +1083,19 @@ export function AuthMascot({
             />
           ))}
         </div>
+      )}
+      {bubble && (
+        <>
+          <div key={bubble.key} className="pm-bubble" data-leaving={bubble.leaving} role="status">
+            {bubble.text}
+          </div>
+          <span
+            key={`tail-${bubble.key}`}
+            className="pm-bubble-tail"
+            data-leaving={bubble.leaving}
+            aria-hidden="true"
+          />
+        </>
       )}
     </div>
   );
