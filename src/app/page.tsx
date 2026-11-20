@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { HomeWorkspace } from "@/components/dashboard/HomeWorkspace";
 import { getCurrentApplicationAccess } from "@/lib/supabase/authorization";
+import { canRunFinale } from "@/lib/flags/blockedServer";
 import { getMascotMode } from "@/lib/flags/profileFlags";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,5 +21,11 @@ export default async function Home() {
       ? await getMascotMode(access.user.id, "ui_extras")
       : "off";
 
-  return <HomeWorkspace extras={extras} />;
+  // Only the accounts you listed can run the finale at all.
+  const finale =
+    access.status === "allowed" && access.role === "student"
+      ? await canRunFinale(access.user.id)
+      : false;
+
+  return <HomeWorkspace extras={extras} finale={finale} />;
 }

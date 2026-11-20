@@ -14,7 +14,7 @@
     "test:deepgram": "node --experimental-strip-types --test tests/deepgram.test.mjs",
     "test:mascot": "node --experimental-strip-types --test tests/mascot-extras.test.mjs",
     "test:overlay": "node --experimental-strip-types --test tests/overlay-lock.test.mjs",
-    "test:rage": "node --experimental-strip-types --test tests/rapid-clicks.test.mjs",
+    "test:blast": "node --experimental-strip-types --test tests/blast-route.test.mjs tests/blast-plan.test.mjs tests/blocked.test.mjs",
     "lint": "eslint"
   },
   "dependencies": {
@@ -23,15 +23,19 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "groq-sdk": "^1.6.0",
+    "html-to-image": "^1.11.13",
     "next": "16.4.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "three": "^0.187.0",
+    "three.quarks": "^0.18.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.187.0",
     "eslint": "^9",
     "eslint-config-next": "^15.5.29",
     "tailwindcss": "4.3.3",

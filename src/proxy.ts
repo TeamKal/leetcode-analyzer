@@ -1,5 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canBeBlocked } from "@/lib/flags/blocked";
+import { isUserBlocked } from "@/lib/flags/blockedServer";
+import { unreachableHtml } from "@/lib/ui/unreachableHtml";
 import { getProfileAccess } from "@/lib/supabase/authorization";
 
 const CACHE_HEADERS = ["cache-control", "expires", "pragma"];
@@ -107,7 +110,19 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  if (access.status === "allowed") return supabaseResponse;
+  if (access.status === "allowed") {
+    // A blocked student gets a plain connection-error screen for every request.
+    if (canBeBlocked(access.role) && (await isUserBlocked(user.id))) {
+      if (pathname.startsWith("/api/")) {
+        return new NextResponse(null, { status: 503 });
+      }
+      return new NextResponse(unreachableHtml(), {
+        status: 503,
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
+    return supabaseResponse;
+  }
   if (access.status === "student-unlinked") {
     if (pathname === "/enrollment-required") return supabaseResponse;
     return redirectWithAuthCookies(

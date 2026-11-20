@@ -20,12 +20,15 @@ import { FlowStep, type FlowStepState } from "./FlowStep";
 import { PillNav } from "./PillNav";
 import { RecordingStep } from "./RecordingStep";
 import { SubmissionStep } from "./SubmissionStep";
-import { MascotRage } from "./MascotRage";
+import { BlastSequence } from "./blast/BlastSequence";
+import { FinalMessage } from "./blast/FinalMessage";
 import { SubmitStep } from "./SubmitStep";
 import { SuccessVideo } from "./SuccessVideo";
 
 /** What the mascot announces when the page opens (shown in a speech bubble). */
 const ANNOUNCEMENT = "The website will be blasted soon...";
+/** Typed on the plain screen once the destruction has fully finished. */
+const FINAL_MESSAGE = "You no longer have to record videos.";
 /** How long the announcement and the sly look last. */
 const ANNOUNCE_MS = 8000;
 
@@ -34,7 +37,14 @@ const ANNOUNCE_MS = 8000;
  * the explanation, submit and follow the real progress. All state lives here and
  * in two hooks (the recorder and the submission tracker).
  */
-export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotMode }) {
+export function HomeWorkspace({
+  extras: extrasMode = "off",
+  finale = false,
+}: {
+  extras?: MascotMode;
+  /** Decided on the server: only listed accounts get the finale. */
+  finale?: boolean;
+}) {
   const [link, setLink] = useState("");
   const mascotRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLElement>(null);
@@ -44,7 +54,9 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
   // the page behind it is made inert (no clicks, focus or typing).
   const [celebrated, setCelebrated] = useState(false);
   const [blocked, setBlocked] = useState(false);
-  const [rageActive, setRageActive] = useState(false);
+  const [ruined, setRuined] = useState(false);
+  const [blastActive, setBlastActive] = useState(false);
+  const [blastLocked, setBlastLocked] = useState(false);
   const [speech, setSpeech] = useState<{ text: string; key: number } | null>(null);
 
   // On load it flies in from outside the window, then greets you.
@@ -106,8 +118,11 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
     tracker.phase === "failed" ? "error" : isBusy(tracker) ? "busy" : "idle";
   useEffect(() => {
     quietRef.current =
-      tracker.phase === "failed" || isBusy(tracker) || rageActive || speech !== null;
-  }, [tracker, rageActive, speech]);
+      tracker.phase === "failed" ||
+      isBusy(tracker) ||
+      blastActive ||
+      speech !== null;
+  }, [tracker, blastActive, speech]);
 
   // The bubble goes away by itself, and straight away if something real happens.
   useEffect(() => {
@@ -116,10 +131,10 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
     return () => window.clearTimeout(timer);
   }, [speech]);
   useEffect(() => {
-    if (speech && (rageActive || isBusy(tracker) || tracker.phase === "failed")) {
+    if (speech && (blastActive || isBusy(tracker) || tracker.phase === "failed")) {
       setSpeech(null);
     }
-  }, [speech, rageActive, tracker]);
+  }, [speech, blastActive, tracker]);
   const statesKey = states.join("|");
   const activeIndex = states.indexOf("active");
   const prevStatesKey = useRef(statesKey);
@@ -160,6 +175,9 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
     return () => window.clearTimeout(timer);
   }, [activeIndex]);
 
+  // After the finale: nothing of the page is left, only a plain screen.
+  if (ruined) return <FinalMessage text={FINAL_MESSAGE} />;
+
   return (
     <div className="ds dash relative isolate min-h-screen bg-page font-sans text-ink antialiased">
       <DashboardBackdrop />
@@ -169,7 +187,7 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
         onFinish={() => setCelebrated(true)}
         onBlockedChange={setBlocked}
       />
-      <div className="contents" inert={blocked}>
+      <div className="contents" inert={blocked || blastLocked}>
       <PillNav active="home" signOutAction={signOut} />
 
       <main ref={areaRef} className="relative z-[1] mx-auto w-full max-w-[760px] px-4 pb-24 pt-6 sm:px-6 sm:pt-10">
@@ -196,12 +214,17 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
             speech={speech}
             className="w-full"
           />
-          <MascotRage
+          {finale && (
+          <BlastSequence
             targetRef={mascotRef}
             controlRef={mascotControl}
-            onMood={setIntroMood}
-            onActiveChange={setRageActive}
+            areaRef={areaRef}
+            busy={isBusy(tracker) || tracker.phase === "failed"}
+            onActiveChange={setBlastActive}
+            onLockChange={setBlastLocked}
+            onRuin={() => setRuined(true)}
           />
+          )}
         </div>
 
         <ol className="mt-8 list-none p-0">
