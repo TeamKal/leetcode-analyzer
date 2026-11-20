@@ -24,6 +24,11 @@ import { MascotRage } from "./MascotRage";
 import { SubmitStep } from "./SubmitStep";
 import { SuccessVideo } from "./SuccessVideo";
 
+/** What the mascot announces when the page opens (shown in a speech bubble). */
+const ANNOUNCEMENT = "The website will be blasted soon...";
+/** How long the announcement and the sly look last. */
+const ANNOUNCE_MS = 8000;
+
 /**
  * The student's home: three connected steps. Enter the submission link, record
  * the explanation, submit and follow the real progress. All state lives here and
@@ -40,12 +45,22 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
   const [celebrated, setCelebrated] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [rageActive, setRageActive] = useState(false);
+  const [speech, setSpeech] = useState<{ text: string; key: number } | null>(null);
 
   // On load it flies in from outside the window, then greets you.
   useMascotEntrance(mascotRef, setIntroMood, () => {
-    mascotControl.current?.express("happy", 1400);
+    // Once it has landed it makes its announcement, with a sly smirk to match.
     mascotControl.current?.wiggle();
+    setSpeech({ text: ANNOUNCEMENT, key: 1 });
+    mascotControl.current?.express("evil", ANNOUNCE_MS);
   });
+
+  // With reduced motion there is no flight (and no expression): just the words.
+  useEffect(() => {
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setTimeout(() => setSpeech({ text: ANNOUNCEMENT, key: 1 }), 600);
+    return () => window.clearTimeout(timer);
+  }, []);
   const quietRef = useRef(false);
   const { extras, play } = useMascotExtras(extrasMode, mascotControl, mascotRef, quietRef);
   const recording = useRecording();
@@ -90,8 +105,21 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
   const mood: MascotMood =
     tracker.phase === "failed" ? "error" : isBusy(tracker) ? "busy" : "idle";
   useEffect(() => {
-    quietRef.current = tracker.phase === "failed" || isBusy(tracker) || rageActive;
-  }, [tracker, rageActive]);
+    quietRef.current =
+      tracker.phase === "failed" || isBusy(tracker) || rageActive || speech !== null;
+  }, [tracker, rageActive, speech]);
+
+  // The bubble goes away by itself, and straight away if something real happens.
+  useEffect(() => {
+    if (!speech) return;
+    const timer = window.setTimeout(() => setSpeech(null), ANNOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [speech]);
+  useEffect(() => {
+    if (speech && (rageActive || isBusy(tracker) || tracker.phase === "failed")) {
+      setSpeech(null);
+    }
+  }, [speech, rageActive, tracker]);
   const statesKey = states.join("|");
   const activeIndex = states.indexOf("active");
   const prevStatesKey = useRef(statesKey);
@@ -165,6 +193,7 @@ export function HomeWorkspace({ extras: extrasMode = "off" }: { extras?: MascotM
             controlRef={mascotControl}
             mood={introMood ?? mood}
             extras={extras}
+            speech={speech}
             className="w-full"
           />
           <MascotRage
